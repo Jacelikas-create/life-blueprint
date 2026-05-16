@@ -133,16 +133,17 @@ function getTodayCode() {
   return ["SUN","MON","TUE","WED","THU","FRI","SAT"][new Date().getDay()];
 }
 function getItemsForDay(day) {
-  const items = [...MORNING_ALWAYS, ...HEALTH_ALWAYS];
-  if (WORK_DAYS.has(day)) items.push(WORK_ITEM);
-  if (day === "TUE") items.push(...TUE_REFLECT);
-  items.push(...HOME_ALWAYS, ...(EXTRA_HOME[day]||[]));
+  const prefix = (items) => items.map(item => ({ ...item, id: `${day}_${item.id}` }));
+  const items = [...prefix(MORNING_ALWAYS), ...prefix(HEALTH_ALWAYS)];
+  if (WORK_DAYS.has(day)) items.push({ ...WORK_ITEM, id: `${day}_${WORK_ITEM.id}` });
+  if (day === "TUE") items.push(...prefix(TUE_REFLECT));
+  items.push(...prefix(HOME_ALWAYS), ...prefix(EXTRA_HOME[day]||[]));
   if (WORKOUT_DAYS[day]) items.push({
     id:`workout_${day}`, category:"workout",
     label:`Strength session (${WORKOUT_DAYS[day].duration})`,
     icon:"💪", isWorkout:true, day,
   });
-  items.push(...NIGHTLY_ALWAYS);
+  items.push(...prefix(NIGHTLY_ALWAYS));
   return items;
 }
 
@@ -365,6 +366,14 @@ export default function App() {
     });
   }
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  async function resetAll() {
+    setChecked({});
+    setErrandsDone({});
+    setShowResetConfirm(false);
+    await saveToSupabase({}, {}, customErrands);
+  }
+
   const allErrands = [...DEFAULT_ERRANDS,...customErrands];
   const errandsDoneCount = allErrands.filter(e=>errandsDone[e.id]).length;
   const errandsPct = allErrands.length?Math.round((errandsDoneCount/allErrands.length)*100):0;
@@ -426,8 +435,30 @@ export default function App() {
           fontSize:12,color:"#555",letterSpacing:1,marginBottom:3}}>
           {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
         </p>
-        <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,
-          fontWeight:600,lineHeight:1.25,marginBottom:18}}>Your Life Blueprint</h1>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:18}}>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,
+            fontWeight:600,lineHeight:1.25}}>Your Life Blueprint</h1>
+          {!showResetConfirm ? (
+            <button onClick={()=>setShowResetConfirm(true)} style={{
+              background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.08)",
+              color:"#555",borderRadius:8,padding:"6px 12px",cursor:"pointer",
+              fontFamily:"'DM Sans',sans-serif",fontSize:11,flexShrink:0,marginTop:4}}>
+              Reset week
+            </button>
+          ) : (
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0,marginTop:4}}>
+              <span style={{fontSize:11,color:"#888"}}>Sure?</span>
+              <button onClick={resetAll} style={{
+                background:"rgba(251,146,60,0.15)",border:"1px solid rgba(251,146,60,0.3)",
+                color:"#fb923c",borderRadius:8,padding:"6px 12px",cursor:"pointer",
+                fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600}}>Yes, reset</button>
+              <button onClick={()=>setShowResetConfirm(false)} style={{
+                background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.08)",
+                color:"#555",borderRadius:8,padding:"6px 10px",cursor:"pointer",
+                fontFamily:"'DM Sans',sans-serif",fontSize:11}}>Cancel</button>
+            </div>
+          )}
+        </div>
 
         <div style={{display:"flex",gap:8,marginBottom:16}}>
           {[["days","Daily View"],["errands","Weekly To-Dos"]].map(([v,label])=>(
