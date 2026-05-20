@@ -4,28 +4,28 @@ export function getWeekKey() {
 }
 
 export function getTodayCode() {
-  return ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][new Date().getDay()];
+  return ["SUN","MON","TUE","WED","THU","FRI","SAT"][new Date().getDay()];
 }
 
 export function getDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-export function isToday(dayCode) {
-  return dayCode === getTodayCode();
+// Water log key — resets at 4am EST
+// Returns a string like "2026-05-19" but rolls over at 4am EST
+export function getWaterDayKey() {
+  const now = new Date();
+  // Convert to EST (UTC-5) or EDT (UTC-4) — use UTC-5 as conservative
+  const estOffset = -5 * 60; // minutes
+  const utcOffset = now.getTimezoneOffset(); // local UTC offset in minutes
+  const estNow = new Date(now.getTime() + (utcOffset + estOffset) * 60000);
+  // If before 4am EST, use previous day
+  if (estNow.getHours() < 4) {
+    estNow.setDate(estNow.getDate() - 1);
+  }
+  return estNow.toISOString().slice(0, 10);
 }
 
-// Returns YYYY-MM-DD for the most recent occurrence of a given day code
-export function getLastDateForDay(dayCode) {
-  const dayIndex = ["SUN","MON","TUE","WED","THU","FRI","SAT"].indexOf(dayCode);
-  const today = new Date();
-  const diff = (today.getDay() - dayIndex + 7) % 7;
-  const date = new Date(today);
-  date.setDate(today.getDate() - diff);
-  return date.toISOString().slice(0, 10);
-}
-
-// Linear regression over [{x, y}] points
 export function linearRegression(points) {
   const n = points.length;
   if (n < 2) return null;
@@ -38,12 +38,10 @@ export function linearRegression(points) {
   return { slope, intercept };
 }
 
-// Days between two YYYY-MM-DD strings
 export function daysBetween(a, b) {
   return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
 
-// Add days to a date string
 export function addDays(dateStr, days) {
   const d = new Date(dateStr);
   d.setDate(d.getDate() + days);
@@ -51,9 +49,9 @@ export function addDays(dateStr, days) {
 }
 
 export function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric" });
 }
 
 export function formatDateLong(dateStr) {
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" });
 }
