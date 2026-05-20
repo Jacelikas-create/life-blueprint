@@ -22,7 +22,7 @@ export default function WorkoutModal({ day, onClose }) {
           borderRadius:8, padding:"10px 12px", marginBottom:16, lineHeight:1.6 }}>{w.note}</div>
         {w.exercises.map((ex, i) => (
           <div key={ex.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
-            padding:"11px 0", borderBottom: i < w.exercises.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+            padding:"11px 0", borderBottom:i < w.exercises.length-1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
             <div>
               <div style={{ fontSize:14, fontWeight:500, color:"#ece9e3" }}>{ex.name}</div>
               <div style={{ fontSize:11, color:"#666", marginTop:2 }}>{ex.tip}</div>
