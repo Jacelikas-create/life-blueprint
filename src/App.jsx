@@ -166,6 +166,14 @@ export default function App() {
       return next;
     });
   }
+  // seedData: merges seed entries without overwriting existing data
+  function seedFoodData(seedEntries) {
+    setFoodLog(prev => {
+      const next = { ...seedEntries, ...prev }; // existing data wins over seeds
+      save({ food_log:next });
+      return next;
+    });
+  }
   function addToFoodDatabase(food) {
     setFoodDatabase(prev => {
       const next = [...prev, food];
@@ -300,6 +308,7 @@ export default function App() {
             foodLog={foodLog}
             onUpdateLog={updateFoodLog}
             onSubmitDay={submitDay}
+            onSeedData={seedFoodData}
             foodDatabase={foodDatabase}
             onAddToDatabase={addToFoodDatabase}
           />
