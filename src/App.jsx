@@ -13,44 +13,42 @@ export default function App() {
   const todayCode = getTodayCode();
   const wk        = getWeekKey();
 
-  const [view,           setView]           = useState("days");
-  const [checked,        setChecked]        = useState({});
-  const [errandsDone,    setErrandsDone]    = useState({});
-  const [customErrands,  setCustomErrands]  = useState([]);
-  const [weightEntries,  setWeightEntries]  = useState([]);
-  const [workoutLogs,    setWorkoutLogs]    = useState({});
-  const [streak,         setStreak]         = useState(0);
-  const [totalWorkouts,  setTotalWorkouts]  = useState(0);
-  const [waterLog,       setWaterLog]       = useState({});
-  const [foodLog,        setFoodLog]        = useState({});
-  const [foodDatabase,   setFoodDatabase]   = useState([]);
-  const [mealPrep,       setMealPrep]       = useState({});
+  const [view,             setView]             = useState("days");
+  const [checked,          setChecked]          = useState({});
+  const [errandsDone,      setErrandsDone]      = useState({});
+  const [customErrands,    setCustomErrands]    = useState([]);
+  const [weightEntries,    setWeightEntries]    = useState([]);
+  const [workoutLogs,      setWorkoutLogs]      = useState({});
+  const [streak,           setStreak]           = useState(0);
+  const [totalWorkouts,    setTotalWorkouts]    = useState(0);
+  const [waterLog,         setWaterLog]         = useState({});
+  const [foodLog,          setFoodLog]          = useState(null); // null = not yet loaded
+  const [foodDatabase,     setFoodDatabase]     = useState([]);
+  const [mealPrep,         setMealPrep]         = useState({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [loading,        setLoading]        = useState(true);
+  const [loading,          setLoading]          = useState(true);
 
-  // ── Load ──────────────────────────────────────────────────
+  // ── Load from Supabase — single source of truth ───────────
   useEffect(() => {
     async function load() {
       const { data, error } = await supabase
         .from("checklist_progress").select("*").eq("id","singleton").single();
       if (data && !error) {
         const savedWeek = data.checked?.week;
-        if (savedWeek === wk) {
-          setChecked(data.checked?.data || {});
-          setErrandsDone(data.errands_done?.data || {});
-        } else {
-          setChecked({});
-          setErrandsDone({});
-        }
+        setChecked(savedWeek === wk ? (data.checked?.data || {}) : {});
+        setErrandsDone(savedWeek === wk ? (data.errands_done?.data || {}) : {});
         setCustomErrands(data.errands_custom  || []);
         setWeightEntries(data.weight_entries  || []);
         setWorkoutLogs(data.workout_logs      || {});
         setStreak(data.streak                 || 0);
         setTotalWorkouts(data.total_workouts  || 0);
         setWaterLog(data.water_log            || {});
-        setFoodLog(data.food_log              || {});
+        setFoodLog(data.food_log              || {}); // always set from DB, never default mid-render
         setFoodDatabase(data.food_database    || []);
         setMealPrep(data.meal_prep            || {});
+      } else {
+        // DB error — set safe defaults so app still renders
+        setFoodLog({});
       }
       setLoading(false);
     }
@@ -63,7 +61,7 @@ export default function App() {
       .eq("id","singleton");
   }
 
-  // ── Checklist ─────────────────────────────────────────────
+  // ── Checklist ──────────────────────────────────────────────
   function toggle(id) {
     setChecked(prev => {
       const next = {...prev,[id]:!prev[id]};
@@ -78,7 +76,7 @@ export default function App() {
     await save({ checked:{ week:wk, data:{} }, errands_done:{ week:wk, data:{} } });
   }
 
-  // ── Errands ───────────────────────────────────────────────
+  // ── Errands ────────────────────────────────────────────────
   function toggleErrand(id) {
     setErrandsDone(prev => {
       const next = {...prev,[id]:!prev[id]};
@@ -96,48 +94,52 @@ export default function App() {
   }
   function deleteErrand(id) {
     setCustomErrands(prev => {
-      const next = prev.filter(e=>e.id!==id);
+      const next = prev.filter(e => e.id !== id);
       save({ errands_custom:next });
       return next;
     });
-    setErrandsDone(prev => { const next={...prev}; delete next[id]; return next; });
+    setErrandsDone(prev => { const next = {...prev}; delete next[id]; return next; });
   }
 
-  // ── Water ─────────────────────────────────────────────────
-  const waterDayKey = getWaterDayKey();
+  // ── Water ──────────────────────────────────────────────────
+  const waterDayKey  = getWaterDayKey();
   const waterGlasses = waterLog[waterDayKey] || 0;
 
   function onWaterTap() {
     const next = Math.min(waterGlasses + 1, 8);
-    const newLog = {...waterLog, [waterDayKey]:next};
-    setWaterLog(newLog);
-    save({ water_log:newLog });
+    setWaterLog(prev => {
+      const newLog = {...prev, [waterDayKey]:next};
+      save({ water_log:newLog });
+      return newLog;
+    });
   }
   function onWaterUndo() {
     const next = Math.max(waterGlasses - 1, 0);
-    const newLog = {...waterLog, [waterDayKey]:next};
-    setWaterLog(newLog);
-    save({ water_log:newLog });
+    setWaterLog(prev => {
+      const newLog = {...prev, [waterDayKey]:next};
+      save({ water_log:newLog });
+      return newLog;
+    });
   }
 
-  // ── Weight ────────────────────────────────────────────────
+  // ── Weight ─────────────────────────────────────────────────
   function addWeightEntry(entry) {
     setWeightEntries(prev => {
-      const filtered = prev.filter(e=>e.date!==entry.date);
-      const next = [...filtered, entry].sort((a,b)=>a.date.localeCompare(b.date));
+      const filtered = prev.filter(e => e.date !== entry.date);
+      const next = [...filtered, entry].sort((a,b) => a.date.localeCompare(b.date));
       save({ weight_entries:next });
       return next;
     });
   }
 
-  // ── Workout logs ──────────────────────────────────────────
+  // ── Workout logs ───────────────────────────────────────────
   function saveWorkoutLog(day, log) {
     const key = `${wk}_${day}`;
     setWorkoutLogs(prev => {
       const next = {...prev,[key]:log};
       const WORKOUT_DAYS = ["TUE","THU","SUN"];
-      const allDone    = WORKOUT_DAYS.every(d=>next[`${wk}_${d}`]?.lockedDate);
-      const wasAllDone = WORKOUT_DAYS.every(d=>prev[`${wk}_${d}`]?.lockedDate);
+      const allDone    = WORKOUT_DAYS.every(d => next[`${wk}_${d}`]?.lockedDate);
+      const wasAllDone = WORKOUT_DAYS.every(d => prev[`${wk}_${d}`]?.lockedDate);
       let newStreak = streak, newTotal = totalWorkouts + 1;
       if (allDone && !wasAllDone) newStreak = streak + 1;
       setStreak(newStreak);
@@ -147,10 +149,19 @@ export default function App() {
     });
   }
 
-  // ── Food ──────────────────────────────────────────────────
+  // ── Food log ───────────────────────────────────────────────
+  // updateLog: called on every food add/remove (not locked yet)
   function updateFoodLog(date, dayLog) {
     setFoodLog(prev => {
-      const next = {...prev,[date]:dayLog};
+      const next = {...prev, [date]:dayLog};
+      save({ food_log:next });
+      return next;
+    });
+  }
+  // submitDay: locks the day and saves final totals
+  function submitDay(date, dayLog) {
+    setFoodLog(prev => {
+      const next = {...prev, [date]:{ ...dayLog, locked:true }};
       save({ food_log:next });
       return next;
     });
@@ -163,7 +174,7 @@ export default function App() {
     });
   }
 
-  // ── Meal prep ─────────────────────────────────────────────
+  // ── Meal prep ──────────────────────────────────────────────
   function updateMealPrep(patch) {
     setMealPrep(prev => {
       const next = {...prev,...patch};
@@ -173,10 +184,11 @@ export default function App() {
   }
 
   const allErrands       = [...DEFAULT_ERRANDS,...customErrands];
-  const errandsDoneCount = allErrands.filter(e=>errandsDone[e.id]).length;
-  const errandsPct       = allErrands.length?Math.round((errandsDoneCount/allErrands.length)*100):0;
+  const errandsDoneCount = allErrands.filter(e => errandsDone[e.id]).length;
+  const errandsPct       = allErrands.length ? Math.round((errandsDoneCount/allErrands.length)*100) : 0;
 
-  if (loading) return (
+  // Block render until Supabase has loaded — prevents race condition overwrite
+  if (loading || foodLog === null) return (
     <div style={{ minHeight:"100vh", background:"#0d0d10", display:"flex",
       alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
       <div style={{ fontSize:28 }}>📋</div>
@@ -218,16 +230,15 @@ export default function App() {
         borderBottom:"1px solid rgba(255,255,255,0.06)", padding:"28px 20px 18px" }}>
         <p style={{ fontFamily:"'Playfair Display',serif", fontStyle:"italic",
           fontSize:12, color:"#555", letterSpacing:1, marginBottom:3 }}>
-          {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
+          {new Date().toLocaleDateString("en-US",{ weekday:"long", month:"long", day:"numeric" })}
         </p>
 
-        {/* Title + reset */}
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:18 }}>
           <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:26, fontWeight:600, lineHeight:1.25 }}>
             Your Life Blueprint
           </h1>
           {!showResetConfirm ? (
-            <button onClick={()=>setShowResetConfirm(true)} style={{
+            <button onClick={() => setShowResetConfirm(true)} style={{
               background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.08)",
               color:"#555", borderRadius:8, padding:"6px 12px", cursor:"pointer",
               fontFamily:"'DM Sans',sans-serif", fontSize:11, flexShrink:0, marginTop:4 }}>
@@ -240,28 +251,26 @@ export default function App() {
                 border:"1px solid rgba(251,146,60,0.3)", color:"#fb923c", borderRadius:8,
                 padding:"6px 12px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif",
                 fontSize:11, fontWeight:600 }}>Yes, reset</button>
-              <button onClick={()=>setShowResetConfirm(false)} style={{ background:"rgba(255,255,255,0.06)",
-                border:"1px solid rgba(255,255,255,0.08)", color:"#555", borderRadius:8,
-                padding:"6px 10px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:11 }}>
-                Cancel
-              </button>
+              <button onClick={() => setShowResetConfirm(false)} style={{
+                background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.08)",
+                color:"#555", borderRadius:8, padding:"6px 10px", cursor:"pointer",
+                fontFamily:"'DM Sans',sans-serif", fontSize:11 }}>Cancel</button>
             </div>
           )}
         </div>
 
-        {/* Tab bar — scrollable for 6 tabs */}
         <div style={{ display:"flex", gap:5, overflowX:"auto", paddingBottom:2 }}>
           {TABS.map(({ id, label }) => {
             const dot = id==="errands"&&errandsPct>0&&errandsPct<100?"#f9a8d4"
                       : id==="errands"&&errandsPct===100?"#4ade80":null;
             return (
-              <button key={id} onClick={()=>setView(id)} style={{
+              <button key={id} onClick={() => setView(id)} style={{
                 flexShrink:0, padding:"8px 14px", borderRadius:99, border:"none",
                 cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:500,
                 background:view===id?"#ece9e3":"rgba(255,255,255,0.07)",
                 color:view===id?"#0d0d10":"#777", position:"relative", transition:"all 0.18s" }}>
                 {label}
-                {dot&&<span style={{ position:"absolute", top:2, right:2, width:6, height:6,
+                {dot && <span style={{ position:"absolute", top:2, right:2, width:6, height:6,
                   borderRadius:"50%", background:dot }}/>}
               </button>
             );
@@ -272,10 +281,8 @@ export default function App() {
       {/* ── Views ── */}
       <div style={{ padding:"18px 20px 0" }}>
         {view==="days" && (
-          <DayView
-            checked={checked} toggle={toggle} todayCode={todayCode}
-            waterGlasses={waterGlasses} onWaterTap={onWaterTap} onWaterUndo={onWaterUndo}
-          />
+          <DayView checked={checked} toggle={toggle} todayCode={todayCode}
+            waterGlasses={waterGlasses} onWaterTap={onWaterTap} onWaterUndo={onWaterUndo}/>
         )}
         {view==="errands" && (
           <ErrandsPanel errands={allErrands} errandsDone={errandsDone}
@@ -289,8 +296,13 @@ export default function App() {
             streak={streak} totalWorkouts={totalWorkouts}/>
         )}
         {view==="food" && (
-          <FoodTab foodLog={foodLog} onUpdateLog={updateFoodLog}
-            foodDatabase={foodDatabase} onAddToDatabase={addToFoodDatabase}/>
+          <FoodTab
+            foodLog={foodLog}
+            onUpdateLog={updateFoodLog}
+            onSubmitDay={submitDay}
+            foodDatabase={foodDatabase}
+            onAddToDatabase={addToFoodDatabase}
+          />
         )}
         {view==="prep" && (
           <MealPrepTab mealPrep={mealPrep} onUpdateMealPrep={updateMealPrep}/>
