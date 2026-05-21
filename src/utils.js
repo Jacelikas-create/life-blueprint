@@ -11,19 +11,34 @@ export function getDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-// Water log key — resets at 4am EST
-// Returns a string like "2026-05-19" but rolls over at 4am EST
+// Water day key — resets at 4am EST, handles DST correctly via Intl API
 export function getWaterDayKey() {
   const now = new Date();
-  // Convert to EST (UTC-5) or EDT (UTC-4) — use UTC-5 as conservative
-  const estOffset = -5 * 60; // minutes
-  const utcOffset = now.getTimezoneOffset(); // local UTC offset in minutes
-  const estNow = new Date(now.getTime() + (utcOffset + estOffset) * 60000);
-  // If before 4am EST, use previous day
-  if (estNow.getHours() < 4) {
-    estNow.setDate(estNow.getDate() - 1);
+
+  // Get current time in EST/EDT using Intl (handles DST automatically)
+  const estParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", hour12: false,
+  }).formatToParts(now);
+
+  const get = type => estParts.find(p => p.type === type)?.value;
+  const year  = parseInt(get("year"));
+  const month = parseInt(get("month")) - 1;
+  const day   = parseInt(get("day"));
+  const hour  = parseInt(get("hour"));
+
+  // If before 4am EST, the water "day" is still yesterday
+  const estDate = new Date(year, month, day);
+  if (hour < 4) {
+    estDate.setDate(estDate.getDate() - 1);
   }
-  return estNow.toISOString().slice(0, 10);
+
+  // Return as YYYY-MM-DD
+  const y = estDate.getFullYear();
+  const m = String(estDate.getMonth() + 1).padStart(2, "0");
+  const d2 = String(estDate.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d2}`;
 }
 
 export function linearRegression(points) {
@@ -43,7 +58,7 @@ export function daysBetween(a, b) {
 }
 
 export function addDays(dateStr, days) {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T12:00:00");
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
