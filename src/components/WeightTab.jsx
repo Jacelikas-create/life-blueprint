@@ -12,8 +12,8 @@ function DreamBodCounter({ daysLeft }) {
       <div style={{ fontSize:11, fontWeight:700, letterSpacing:2.5, color:"#f9a8d4",
         textTransform:"uppercase", marginBottom:8 }}>Days Until Dream Bod</div>
       <div style={{ fontFamily:"'Playfair Display',serif", fontSize:52, fontWeight:600,
-        color:isHit ? "#4ade80" : "#ece9e3", lineHeight:1, marginBottom:6 }}>
-        {isHit ? "🎉" : Math.abs(daysLeft)}
+        color:isHit?"#4ade80":"#ece9e3", lineHeight:1, marginBottom:6 }}>
+        {isHit?"🎉":Math.abs(daysLeft)}
       </div>
       {isHit ? (
         <div style={{ fontSize:13, color:"#4ade80" }}>You've hit your goal weight!</div>
@@ -25,9 +25,9 @@ function DreamBodCounter({ daysLeft }) {
 }
 
 function WeightChart({ entries, goalWeight }) {
-  if (entries.length === 0) return null;
-  const W=340, H=200, PAD={top:16,right:16,bottom:32,left:40};
-  const chartW=W-PAD.left-PAD.right, chartH=H-PAD.top-PAD.bottom;
+  if (entries.length===0) return null;
+  const W=340,H=200,PAD={top:16,right:16,bottom:32,left:40};
+  const chartW=W-PAD.left-PAD.right,chartH=H-PAD.top-PAD.bottom;
   const sorted=[...entries].sort((a,b)=>a.date.localeCompare(b.date));
   const startDate=sorted[0].date;
   const today=new Date().toISOString().slice(0,10);
@@ -61,7 +61,7 @@ function WeightChart({ entries, goalWeight }) {
         <text x={W-PAD.right-2} y={goalY-4} fontSize={9} fill="#4ade80" textAnchor="end" opacity={0.8}>{goalWeight} goal</text>
         {trendPath&&<path d={trendPath} stroke="#a78bfa" strokeWidth={2} fill="none" opacity={0.8}/>}
         {projPath&&<path d={projPath} stroke="#a78bfa" strokeWidth={1.5} fill="none" strokeDasharray="5 4" opacity={0.5}/>}
-        {reg&&[{x:todayX+30,y:proj1mY,l:"+1mo"},{x:todayX+90,y:proj3mY,l:"+3mo"},{x:proj6m,y:proj6mY,l:"+6mo"}].map((p,i)=>(
+        {reg&&[{x:todayX+30,y:proj1mY},{x:todayX+90,y:proj3mY},{x:proj6m,y:proj6mY}].map((p,i)=>(
           <g key={i}>
             <circle cx={toX(p.x)} cy={toY(p.y)} r={3} fill="#a78bfa" opacity={0.5}/>
             <text x={toX(p.x)} y={toY(p.y)-7} fontSize={8} fill="#a78bfa" textAnchor="middle" opacity={0.7}>{Math.round(p.y)}</text>
@@ -81,6 +81,7 @@ export default function WeightTab({ weightEntries, onAddEntry }) {
   const [inputWeight, setInputWeight] = useState("");
   const [inputDate,   setInputDate]   = useState(new Date().toISOString().slice(0,10));
   const [error,       setError]       = useState("");
+
   const sorted=[...weightEntries].sort((a,b)=>a.date.localeCompare(b.date));
   const startWeight=sorted.length>0?sorted[0].weight:null;
   const currentWeight=sorted.length>0?sorted[sorted.length-1].weight:null;
@@ -109,7 +110,9 @@ export default function WeightTab({ weightEntries, onAddEntry }) {
     <div style={{padding:"18px 20px 0"}}>
       <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:600,marginBottom:4}}>Weight Loss</div>
       <div style={{fontSize:11,color:"#555",marginBottom:20}}>Weigh in Mon · Wed · Sat — same time, before eating</div>
+
       <DreamBodCounter daysLeft={daysUntilGoal}/>
+
       {startWeight&&(
         <div style={{display:"flex",gap:10,marginBottom:20}}>
           {[{l:"Start",v:`${startWeight} lbs`,c:"#888"},{l:"Current",v:`${currentWeight} lbs`,c:"#ece9e3"},
@@ -122,6 +125,7 @@ export default function WeightTab({ weightEntries, onAddEntry }) {
           ))}
         </div>
       )}
+
       {weightEntries.length>0?(
         <WeightChart entries={weightEntries} goalWeight={GOAL_WEIGHT}/>
       ):(
@@ -131,6 +135,7 @@ export default function WeightTab({ weightEntries, onAddEntry }) {
           <div style={{fontSize:14,color:"#555"}}>Log your first weight to get started</div>
         </div>
       )}
+
       {reg&&(
         <div style={{marginBottom:20}}>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:2.5,color:"#a78bfa",textTransform:"uppercase",marginBottom:10}}>
@@ -148,20 +153,33 @@ export default function WeightTab({ weightEntries, onAddEntry }) {
           </div>
         </div>
       )}
+
+      {/* Log entry — stacked layout for mobile */}
       <div style={{background:"#17171d",border:"1px solid rgba(255,255,255,0.06)",borderRadius:14,padding:"16px",marginBottom:20}}>
-        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:12,textTransform:"uppercase",letterSpacing:1.5}}>Log a weigh-in</div>
-        <div style={{display:"flex",gap:8,marginBottom:error?8:0}}>
-          <input type="number" value={inputWeight} onChange={e=>setInputWeight(e.target.value)}
-            placeholder="lbs" style={{flex:1,background:"#0d0d10",border:"1px solid rgba(255,255,255,0.08)",
-              borderRadius:10,padding:"10px 14px",color:"#ece9e3",fontSize:14,fontFamily:"'DM Sans',sans-serif",outline:"none"}}/>
-          <input type="date" value={inputDate} onChange={e=>setInputDate(e.target.value)}
-            style={{flex:1,background:"#0d0d10",border:"1px solid rgba(255,255,255,0.08)",
-              borderRadius:10,padding:"10px 14px",color:"#ece9e3",fontSize:13,fontFamily:"'DM Sans',sans-serif",outline:"none"}}/>
-          <button onClick={handleAdd} style={{background:"#f9a8d4",color:"#0d0d10",border:"none",borderRadius:10,
-            padding:"10px 16px",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,cursor:"pointer",flexShrink:0}}>Log</button>
+        <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:12,textTransform:"uppercase",letterSpacing:1.5}}>
+          Log a weigh-in
         </div>
-        {error&&<div style={{fontSize:11,color:"#fb923c",marginTop:6}}>{error}</div>}
+        {/* Row 1: weight input */}
+        <input type="number" value={inputWeight} onChange={e=>setInputWeight(e.target.value)}
+          placeholder="Weight in lbs"
+          style={{width:"100%",background:"#0d0d10",border:"1px solid rgba(255,255,255,0.08)",
+            borderRadius:10,padding:"12px 14px",color:"#ece9e3",fontSize:16,
+            fontFamily:"'DM Sans',sans-serif",outline:"none",marginBottom:10}}/>
+        {/* Row 2: date picker */}
+        <input type="date" value={inputDate} onChange={e=>setInputDate(e.target.value)}
+          style={{width:"100%",background:"#0d0d10",border:"1px solid rgba(255,255,255,0.08)",
+            borderRadius:10,padding:"12px 14px",color:"#ece9e3",fontSize:15,
+            fontFamily:"'DM Sans',sans-serif",outline:"none",marginBottom:10}}/>
+        {/* Row 3: button */}
+        <button onClick={handleAdd}
+          style={{width:"100%",background:"#f9a8d4",color:"#0d0d10",border:"none",borderRadius:10,
+            padding:"13px",fontFamily:"'DM Sans',sans-serif",fontSize:14,
+            fontWeight:600,cursor:"pointer"}}>
+          Log weight
+        </button>
+        {error&&<div style={{fontSize:11,color:"#fb923c",marginTop:8}}>{error}</div>}
       </div>
+
       {sorted.length>0&&(
         <div style={{marginBottom:20}}>
           <div style={{fontSize:9,fontWeight:700,letterSpacing:2.5,color:"#888",textTransform:"uppercase",marginBottom:10}}>History</div>
