@@ -80,7 +80,9 @@ export const HOME_ALWAYS = [
   { id:"h3", category:"home", label:"Quick 10-min tidy of main living area", icon:"🧹" },
 ];
 export const EXTRA_HOME = {
-  MON:[],
+  MON:[
+    { id:"h_mon1", category:"home", label:"Take out trash & recycling", icon:"🗑️" },
+  ],
   TUE:[
     { id:"h_tue1", category:"home", label:"Vacuum & sweep floors",              icon:"🧽" },
     { id:"h_tue2", category:"home", label:"Wipe down bathroom surfaces",        icon:"🚿" },
@@ -90,9 +92,8 @@ export const EXTRA_HOME = {
     { id:"h_wed2", category:"home", label:"Clear & wipe kitchen counters",      icon:"🍳" },
   ],
   THU:[
-    { id:"h_thu1", category:"home", label:"Take out trash & recycling",         icon:"🗑️" },
-    { id:"h_thu2", category:"home", label:"Tidy bedroom / put things away",     icon:"📦" },
-    { id:"h_thu3", category:"night", label:"Lay out tomorrow's clothes",        icon:"👕" },
+    { id:"h_thu1", category:"home", label:"Tidy bedroom / put things away",     icon:"📦" },
+    { id:"h_thu2", category:"night", label:"Lay out tomorrow's clothes",        icon:"👕" },
   ],
   FRI:[
     { id:"h_fri1", category:"night", label:"Lay out tomorrow's clothes",        icon:"👕" },
