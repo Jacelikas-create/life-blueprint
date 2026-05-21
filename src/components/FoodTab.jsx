@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CALORIE_TARGET, PROTEIN_TARGET, DEFAULT_FOODS } from "../constants";
 import { formatDateLong } from "../utils";
 
@@ -7,6 +7,51 @@ const MEAL_SECTIONS = [
   { id:"main",  label:"Main Meal",            icon:"🍽️", color:"#4ade80" },
   { id:"snack", label:"Extra Snacks",         icon:"🍎", color:"#fb923c" },
 ];
+
+// ── Seed data — realistic fake entries for past days ─────
+function getSeedData() {
+  const today = new Date();
+  const seeds = {};
+  // Yesterday
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const yd = yesterday.toISOString().slice(0, 10);
+  seeds[yd] = {
+    pre: [
+      { name:"Gold Standard Protein Shake", calories:150, protein:24, emoji:"🥤", logId:1001 },
+      { name:"Greek Yogurt with Granola",   calories:300, protein:18, emoji:"🫙", logId:1002 },
+    ],
+    main: [
+      { name:"Chicken Breast (6oz)",        calories:185, protein:35, emoji:"🍗", logId:1003 },
+      { name:"White Rice (1 cup cooked)",   calories:205, protein:4,  emoji:"🍚", logId:1004 },
+      { name:"Frozen Broccoli (1 cup)",     calories:55,  protein:4,  emoji:"🥦", logId:1005 },
+    ],
+    snack: [
+      { name:"Hard Boiled Eggs (2)",        calories:140, protein:12, emoji:"🥚", logId:1006 },
+    ],
+    locked: true,
+  };
+  // Two days ago
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(today.getDate() - 2);
+  const td = twoDaysAgo.toISOString().slice(0, 10);
+  seeds[td] = {
+    pre: [
+      { name:"Gold Standard Protein Shake", calories:150, protein:24, emoji:"🥤", logId:2001 },
+    ],
+    main: [
+      { name:"88/12 Ground Beef (6oz)",     calories:320, protein:32, emoji:"🥩", logId:2002 },
+      { name:"Cauliflower Rice (1 cup)",    calories:25,  protein:2,  emoji:"🍚", logId:2003 },
+      { name:"Frozen Green Beans (1 cup)",  calories:35,  protein:2,  emoji:"🫘", logId:2004 },
+    ],
+    snack: [
+      { name:"Protein Bar",                 calories:200, protein:20, emoji:"🍫", logId:2005 },
+      { name:"Banana + Peanut Butter",      calories:250, protein:7,  emoji:"🍌", logId:2006 },
+    ],
+    locked: true,
+  };
+  return seeds;
+}
 
 function MacroBar({ label, current, target, color }) {
   const pct  = Math.min(Math.round((current / target) * 100), 100);
@@ -77,7 +122,6 @@ function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
       <div onClick={e=>e.stopPropagation()} style={{ background:"#18181d",
         borderRadius:"20px 20px 0 0", border:"1px solid rgba(255,255,255,0.08)",
         width:"100%", maxWidth:540, maxHeight:"75vh", overflowY:"auto", padding:"24px 20px 40px" }}>
-
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
           <div style={{ fontFamily:"'Playfair Display',serif", fontSize:16, fontWeight:600 }}>
             Add to {MEAL_SECTIONS.find(s=>s.id===section)?.label}
@@ -85,7 +129,6 @@ function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
           <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)", border:"none",
             color:"#888", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>✕</button>
         </div>
-
         <div style={{ display:"flex", gap:6, marginBottom:16 }}>
           {[["search","Search / Quick-add"],["manual","Manual entry"]].map(([m,l])=>(
             <button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"8px", borderRadius:8,
@@ -94,7 +137,6 @@ function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
               color:mode===m?"#0d0d10":"#777", fontFamily:"'DM Sans',sans-serif", fontSize:12 }}>{l}</button>
           ))}
         </div>
-
         {mode==="search" ? (
           <>
             <input value={query} onChange={e=>setQuery(e.target.value)} autoFocus
@@ -162,82 +204,52 @@ function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
   );
 }
 
-export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase }) {
-  const [addingTo,      setAddingTo]      = useState(null);
-  const [showHistory,   setShowHistory]   = useState(false);
+// ── Day log editor — used for both today and editing past days ──
+function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodDatabase, onAddToDatabase }) {
+  const [addingTo, setAddingTo] = useState(null);
+  const isLocked = !!dayData?.locked;
+  const data     = dayData || { pre:[], main:[], snack:[], locked:false };
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Today's data — only use if it exists AND is not locked from a previous day
-  // If today's key doesn't exist, start completely fresh
-  const rawToday  = foodLog[today];
-  const isLocked  = !!rawToday?.locked;
-  const todayData = rawToday || { pre:[], main:[], snack:[], locked:false };
-
-  const allEntries    = [...(todayData.pre||[]), ...(todayData.main||[]), ...(todayData.snack||[])];
+  const allEntries    = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
   const totalCalories = allEntries.reduce((s,f)=>s+f.calories,0);
   const totalProtein  = allEntries.reduce((s,f)=>s+(f.protein||0),0);
   const remaining     = CALORIE_TARGET - totalCalories;
-  const calorieColor  = totalCalories > CALORIE_TARGET ? "#fb923c"
-                      : totalCalories > CALORIE_TARGET*0.9 ? "#fde68a" : "#4ade80";
-
-  // History — only past days that are locked, newest first
-  const history = Object.entries(foodLog)
-    .filter(([date, data]) => date !== today && data?.locked)
-    .sort(([a],[b]) => b.localeCompare(a))
-    .map(([date, data]) => {
-      const entries = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
-      return {
-        date,
-        calories: Math.round(entries.reduce((s,f)=>s+f.calories,0)),
-        protein:  Math.round(entries.reduce((s,f)=>s+(f.protein||0),0)),
-      };
-    });
+  const calorieColor  = totalCalories>CALORIE_TARGET?"#fb923c"
+                      : totalCalories>CALORIE_TARGET*0.9?"#fde68a":"#4ade80";
 
   function addFood(section, food) {
     if (isLocked) return;
-    const updated = {
-      ...todayData,
-      [section]: [...(todayData[section]||[]), {...food, id:undefined, logId:Date.now()}],
-    };
-    onUpdateLog(today, updated);
-    const exists = [...DEFAULT_FOODS,...foodDatabase]
-      .some(f=>f.name.toLowerCase()===food.name.toLowerCase());
-    if (!exists) {
-      onAddToDatabase({ id:`db_${Date.now()}`, name:food.name,
-        calories:food.calories, protein:food.protein||0, emoji:food.emoji||"🍴" });
-    }
+    const updated = { ...data, [section]:[...(data[section]||[]), {...food, id:undefined, logId:Date.now()}] };
+    onUpdate(date, updated);
+    const exists = [...DEFAULT_FOODS,...foodDatabase].some(f=>f.name.toLowerCase()===food.name.toLowerCase());
+    if (!exists) onAddToDatabase({ id:`db_${Date.now()}`, name:food.name,
+      calories:food.calories, protein:food.protein||0, emoji:food.emoji||"🍴" });
   }
 
   function removeFood(section, logId) {
     if (isLocked) return;
-    const updated = { ...todayData, [section]:(todayData[section]||[]).filter(f=>f.logId!==logId) };
-    onUpdateLog(today, updated);
+    const updated = { ...data, [section]:(data[section]||[]).filter(f=>f.logId!==logId) };
+    onUpdate(date, updated);
   }
 
-  function submitDay() {
-    if (allEntries.length === 0) return;
-    onSubmitDay(today, { ...todayData, locked:true });
-    // Auto-open history so user sees it slide down
-    setShowHistory(true);
-  }
+  const dateLabel = isToday
+    ? new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})
+    : formatDateLong(date);
 
   return (
-    <div style={{ padding:"18px 20px 0" }}>
+    <div>
       {addingTo && (
         <AddFoodModal section={addingTo} foodDatabase={foodDatabase}
           onAdd={food=>addFood(addingTo,food)} onClose={()=>setAddingTo(null)}/>
       )}
 
-      <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600, marginBottom:4 }}>
-        Food Log
-      </div>
+      {/* Date label */}
       <div style={{ fontSize:11, color:"#555", marginBottom:16 }}>
-        {new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}
-        {isLocked && <span style={{ marginLeft:8, color:"#fb923c" }}>🔒 Day submitted</span>}
+        {dateLabel}
+        {isLocked && <span style={{ marginLeft:8, color:"#fb923c" }}>🔒 Submitted</span>}
       </div>
 
-      {/* Calorie summary — always shows today */}
+      {/* Summary bar */}
       <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
         borderRadius:14, padding:"16px", marginBottom:20 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:12 }}>
@@ -246,8 +258,7 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
               {Math.round(totalCalories)}
             </div>
             <div style={{ fontSize:11, color:"#555", marginTop:2 }}>
-              of {CALORIE_TARGET} cal ·{" "}
-              {remaining>=0?`${remaining} remaining`:`${Math.abs(remaining)} over`}
+              of {CALORIE_TARGET} cal · {remaining>=0?`${remaining} remaining`:`${Math.abs(remaining)} over`}
             </div>
           </div>
           <div style={{ textAlign:"right" }}>
@@ -261,9 +272,9 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         </div>
       </div>
 
-      {/* Today's meal sections */}
+      {/* Meal sections */}
       {MEAL_SECTIONS.map(section=>{
-        const entries     = todayData[section.id]||[];
+        const entries     = data[section.id]||[];
         const sectionCals = entries.reduce((s,f)=>s+f.calories,0);
         return (
           <div key={section.id} style={{ marginBottom:20 }}>
@@ -286,7 +297,7 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
                     onRemove={()=>removeFood(section.id,entry.logId)}/>
                 ))
               )}
-              {!isLocked&&(
+              {!isLocked && (
                 <div onClick={()=>setAddingTo(section.id)}
                   style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 14px",
                     cursor:"pointer", color:"#555",
@@ -301,18 +312,109 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         );
       })}
 
-      {/* Submit button */}
-      {!isLocked && allEntries.length>0 && (
-        <button onClick={submitDay} style={{ width:"100%", padding:"13px", borderRadius:12,
-          border:"none", background:"#4ade80", color:"#0d0d10",
-          fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600,
-          cursor:"pointer", marginBottom:24 }}>
-          Submit today's food log
-        </button>
-      )}
+      {/* Action buttons */}
+      <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:24 }}>
+        {!isLocked && allEntries.length>0 && (
+          <button onClick={()=>onSubmit(date, {...data, locked:true})}
+            style={{ width:"100%", padding:"13px", borderRadius:12, border:"none",
+              background:"#4ade80", color:"#0d0d10",
+              fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, cursor:"pointer" }}>
+            Submit {isToday?"today's":"this day's"} food log
+          </button>
+        )}
+        {isLocked && (
+          <button onClick={()=>onUnlock(date, {...data, locked:false})}
+            style={{ width:"100%", padding:"13px", borderRadius:12,
+              border:"1px solid rgba(251,146,60,0.3)", background:"rgba(251,146,60,0.08)",
+              color:"#fb923c", fontFamily:"'DM Sans',sans-serif",
+              fontSize:14, fontWeight:600, cursor:"pointer" }}>
+            Undo submission — edit this day
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase, onSeedData }) {
+  const [showHistory,  setShowHistory]  = useState(false);
+  const [editingDate,  setEditingDate]  = useState(null); // null = today, string = past date
+  const [seeded,       setSeeded]       = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Seed fake data on first load if no history exists
+  useEffect(() => {
+    if (seeded) return;
+    const hasHistory = Object.entries(foodLog).some(([date, data]) => date !== today && data?.locked);
+    const hasToday   = !!foodLog[today];
+    if (!hasHistory) {
+      onSeedData(getSeedData());
+    } else if (hasToday && !foodLog[today]?.locked) {
+      // If today exists but isn't locked, make sure we're showing today fresh
+    }
+    setSeeded(true);
+  }, [foodLog]);
+
+  // Today's data — only use if key exists for TODAY specifically
+  // Never fall through to a different date's data
+  const todayData = foodLog[today] || null;
+
+  // History — all locked past days, newest first
+  const history = Object.entries(foodLog)
+    .filter(([date, data]) => date !== today && data?.locked)
+    .sort(([a],[b]) => b.localeCompare(a))
+    .map(([date, data]) => {
+      const entries = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
+      return {
+        date,
+        calories: Math.round(entries.reduce((s,f)=>s+f.calories,0)),
+        protein:  Math.round(entries.reduce((s,f)=>s+(f.protein||0),0)),
+      };
+    });
+
+  function handleUnlock(date, updatedData) {
+    onUpdateLog(date, updatedData);
+    setEditingDate(date === today ? null : date);
+  }
+
+  // What are we showing?
+  const viewingDate = editingDate || today;
+  const viewingData = foodLog[viewingDate] || null;
+  const isViewingToday = viewingDate === today;
+
+  return (
+    <div style={{ padding:"18px 20px 0" }}>
+
+      {/* Header + back button if editing past day */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>
+          Food Log
+        </div>
+        {editingDate && (
+          <button onClick={()=>setEditingDate(null)} style={{ background:"rgba(255,255,255,0.06)",
+            border:"1px solid rgba(255,255,255,0.08)", color:"#888", borderRadius:8,
+            padding:"6px 12px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:11 }}>
+            ← Back to today
+          </button>
+        )}
+      </div>
+
+      {/* Day editor — today or selected past day */}
+      <DayEditor
+        key={viewingDate}
+        date={viewingDate}
+        dayData={viewingData}
+        isToday={isViewingToday}
+        onUpdate={onUpdateLog}
+        onSubmit={(date, data) => { onSubmitDay(date, data); setShowHistory(true); setEditingDate(null); }}
+        onUnlock={handleUnlock}
+        foodDatabase={foodDatabase}
+        onAddToDatabase={onAddToDatabase}
+      />
 
       {/* History toggle */}
-      {history.length>0&&(
+      {history.length>0 && (
         <>
           <button onClick={()=>setShowHistory(o=>!o)} style={{ width:"100%", padding:"12px",
             background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)",
@@ -321,15 +423,16 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
             {showHistory?"Hide":"Show"} food history ({history.length} days)
           </button>
 
-          {showHistory&&(
+          {showHistory && (
             <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
               borderRadius:14, overflow:"hidden", marginBottom:20 }}>
-              {/* Header */}
+              {/* Header row */}
               <div style={{ display:"flex", padding:"8px 14px",
                 borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
                 <span style={{ flex:2, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1 }}>Date</span>
                 <span style={{ flex:1, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1, textAlign:"right" }}>Cal</span>
                 <span style={{ flex:1, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1, textAlign:"right" }}>Protein</span>
+                <span style={{ width:40 }}/>
               </div>
               {history.map((row,i)=>{
                 const calColor = row.calories>CALORIE_TARGET?"#fb923c"
@@ -346,6 +449,9 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:proColor, textAlign:"right" }}>
                       {row.protein}g
                     </span>
+                    <button onClick={()=>{ setEditingDate(row.date); setShowHistory(false); }}
+                      style={{ width:40, background:"none", border:"none", color:"#555",
+                        cursor:"pointer", fontSize:12, textAlign:"right" }}>Edit</button>
                   </div>
                 );
               })}
