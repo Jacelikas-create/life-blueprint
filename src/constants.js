@@ -66,12 +66,11 @@ export const WORKOUTS = {
 export const MORNING_ALWAYS = [
   { id:"m1", category:"morning", label:"Brush your teeth",           icon:"🪥" },
   { id:"m2", category:"morning", label:"Wash your face",             icon:"🧴" },
-  { id:"m3", category:"morning", label:"Eat a nutritious breakfast", icon:"🥗" },
+  { id:"m3", category:"morning", label:"Protein shake & creatine",   icon:"🥤" },
 ];
 export const HEALTH_ALWAYS = [
   { id:"d1", category:"health", label:"Drink 8 glasses of water",   icon:"💧" },
   { id:"d2", category:"health", label:"Avoid late-night snacking",   icon:"🌙" },
-  { id:"d3", category:"health", label:"In bed by a consistent time", icon:"🛌" },
 ];
 export const CARDIO_ITEM = { id:"d4", category:"health", label:"10,000 steps (Oura ring)", icon:"🚶" };
 export const WORK_ITEM   = { id:"w1", category:"work",   label:"Log & track tips for today", icon:"💰" };
@@ -93,11 +92,15 @@ export const EXTRA_HOME = {
   THU:[
     { id:"h_thu1", category:"home", label:"Take out trash & recycling",         icon:"🗑️" },
     { id:"h_thu2", category:"home", label:"Tidy bedroom / put things away",     icon:"📦" },
+    { id:"h_thu3", category:"night", label:"Lay out tomorrow's clothes",        icon:"👕" },
   ],
-  FRI:[],
+  FRI:[
+    { id:"h_fri1", category:"night", label:"Lay out tomorrow's clothes",        icon:"👕" },
+  ],
   SAT:[],
   SUN:[
     { id:"h_sun1", category:"home", label:"Wipe down all surfaces (reset week)", icon:"🧼" },
+    { id:"h_sun2", category:"night", label:"Lay out tomorrow's clothes",         icon:"👕" },
   ],
 };
 export const TUE_REFLECT = [
@@ -110,8 +113,7 @@ export const NIGHTLY_ALWAYS = [
   { id:"n2", category:"night", label:"Brush your teeth",            icon:"🪥" },
   { id:"n3", category:"night", label:"Take your meds",              icon:"💊" },
   { id:"n4", category:"night", label:"Tidy your gaming area",       icon:"🎮" },
-  { id:"n5", category:"night", label:"Lay out tomorrow's clothes",  icon:"👕" },
-  { id:"n6", category:"night", label:"Double check your backpack",  icon:"🎒" },
+  { id:"n5", category:"night", label:"Double check your backpack",  icon:"🎒" },
 ];
 
 // ── Weekly errands ────────────────────────────────────────
