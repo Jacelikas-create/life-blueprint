@@ -322,14 +322,10 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
             Submit {isToday?"today's":"this day's"} food log
           </button>
         )}
-        {isLocked && (
-          <button onClick={()=>onUnlock(date, {...data, locked:false})}
-            style={{ width:"100%", padding:"13px", borderRadius:12,
-              border:"1px solid rgba(251,146,60,0.3)", background:"rgba(251,146,60,0.08)",
-              color:"#fb923c", fontFamily:"'DM Sans',sans-serif",
-              fontSize:14, fontWeight:600, cursor:"pointer" }}>
-            Undo submission — edit this day
-          </button>
+        {isLocked && isToday && (
+          <div style={{ textAlign:"center", fontSize:12, color:"#555", padding:"4px 0" }}>
+            ✓ Submitted — find it in history below to edit
+          </div>
         )}
       </div>
     </div>
@@ -360,9 +356,9 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
   // Never fall through to a different date's data
   const todayData = foodLog[today] || null;
 
-  // History — all locked past days, newest first
+  // History — all locked days including today if submitted, newest first
   const history = Object.entries(foodLog)
-    .filter(([date, data]) => date !== today && data?.locked)
+    .filter(([date, data]) => data?.locked)
     .sort(([a],[b]) => b.localeCompare(a))
     .map(([date, data]) => {
       const entries = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
@@ -370,6 +366,7 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         date,
         calories: Math.round(entries.reduce((s,f)=>s+f.calories,0)),
         protein:  Math.round(entries.reduce((s,f)=>s+(f.protein||0),0)),
+        isToday:  date === today,
       };
     });
 
@@ -407,7 +404,11 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         dayData={viewingData}
         isToday={isViewingToday}
         onUpdate={onUpdateLog}
-        onSubmit={(date, data) => { onSubmitDay(date, data); setShowHistory(true); setEditingDate(null); }}
+        onSubmit={(date, data) => {
+          onSubmitDay(date, data);
+          setEditingDate(null);   // snap back to today
+          setShowHistory(true);   // open history so user sees it land
+        }}
         onUnlock={handleUnlock}
         foodDatabase={foodDatabase}
         onAddToDatabase={onAddToDatabase}
@@ -442,7 +443,9 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
                   <div key={row.date} style={{ display:"flex", alignItems:"center",
                     padding:"11px 14px",
                     borderBottom:i<history.length-1?"1px solid rgba(255,255,255,0.045)":"none" }}>
-                    <span style={{ flex:2, fontSize:13, color:"#888" }}>{formatDateLong(row.date)}</span>
+                    <span style={{ flex:2, fontSize:13, color:"#888" }}>
+                      {row.isToday ? <span style={{ color:"#ece9e3", fontWeight:500 }}>Today</span> : formatDateLong(row.date)}
+                    </span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:calColor, textAlign:"right" }}>
                       {row.calories}
                     </span>
