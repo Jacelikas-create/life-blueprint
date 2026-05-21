@@ -322,12 +322,7 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
             Submit {isToday?"today's":"this day's"} food log
           </button>
         )}
-        {isLocked && isToday && (
-          <div style={{ textAlign:"center", fontSize:12, color:"#555", padding:"4px 0" }}>
-            ✓ Submitted — find it in history below to edit
-          </div>
-        )}
-        {isLocked && !isToday && (
+        {isLocked && (
           <button onClick={()=>onUnlock(date, {...data, locked:false})}
             style={{ width:"100%", padding:"13px", borderRadius:12,
               border:"1px solid rgba(251,146,60,0.3)", background:"rgba(251,146,60,0.08)",
@@ -458,7 +453,7 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
                     padding:"11px 14px",
                     borderBottom:i<history.length-1?"1px solid rgba(255,255,255,0.045)":"none" }}>
                     <span style={{ flex:2, fontSize:13, color:"#888" }}>
-                      {row.isToday ? <span style={{ color:"#ece9e3", fontWeight:500 }}>Today</span> : formatDateLong(row.date)}
+                      {formatDateLong(row.date)}
                     </span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:calColor, textAlign:"right" }}>
                       {row.calories}
