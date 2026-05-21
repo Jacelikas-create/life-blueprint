@@ -327,6 +327,20 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
             ✓ Submitted — find it in history below to edit
           </div>
         )}
+        {isLocked && !isToday && (
+          <button onClick={()=>onUnlock(date, {...data, locked:false})}
+            style={{ width:"100%", padding:"13px", borderRadius:12,
+              border:"1px solid rgba(251,146,60,0.3)", background:"rgba(251,146,60,0.08)",
+              color:"#fb923c", fontFamily:"'DM Sans',sans-serif",
+              fontSize:14, fontWeight:600, cursor:"pointer" }}>
+            Unlock to edit this day
+          </button>
+        )}
+        {!isLocked && !isToday && allEntries.length>0 && (
+          <div style={{ textAlign:"center", fontSize:11, color:"#555" }}>
+            Make your changes above, then submit to save
+          </div>
+        )}
       </div>
     </div>
   );
