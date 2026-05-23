@@ -2,37 +2,97 @@ import { useState } from "react";
 import {
   DAYS, DAY_LABELS, DAY_SHORT, WORK_DAYS, OFF_DAYS, WEIGH_DAYS, CAT,
   MORNING_ALWAYS, HEALTH_ALWAYS, CARDIO_ITEM, WORK_ITEM,
-  HOME_ALWAYS, EXTRA_HOME, TUE_REFLECT, NIGHTLY_ALWAYS, WORKOUTS,
+  KIKI_ALWAYS, HOME_ALWAYS, EXTRA_HOME, TUE_REFLECT, NIGHTLY_ALWAYS,
+  WORKOUTS, CLEANING_SESSIONS,
 } from "../constants";
 import ProgressRing from "./ProgressRing";
 import WorkoutModal from "./WorkoutModal";
 import WaterCounter from "./WaterCounter";
 
 const WORKOUT_DAYS = { TUE:WORKOUTS.TUE, THU:WORKOUTS.THU, SUN:WORKOUTS.SUN };
+const CLEAN_DAYS   = new Set(["TUE","WED","THU"]);
 
+// ── Cleaning Modal ────────────────────────────────────────
+function CleaningModal({ day, onClose }) {
+  const session = CLEANING_SESSIONS[day];
+  if (!session) return null;
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
+      zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:"#18181d",
+        borderRadius:"20px 20px 0 0", border:"1px solid rgba(255,255,255,0.08)",
+        width:"100%", maxWidth:540, maxHeight:"75vh", overflowY:"auto", padding:"24px 20px 40px" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:"#fb923c",
+              textTransform:"uppercase", marginBottom:4 }}>
+              {DAY_LABELS[day]} · Deep Clean · {session.duration}
+            </div>
+            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>
+              {session.icon} {session.title}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)", border:"none",
+            color:"#888", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>✕</button>
+        </div>
+        <div style={{ fontSize:12, color:"#888", background:"rgba(255,255,255,0.04)",
+          borderRadius:8, padding:"10px 12px", marginBottom:16, lineHeight:1.6 }}>
+          {session.note}
+        </div>
+        {session.tasks.map((task, i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0",
+            borderBottom:i<session.tasks.length-1?"1px solid rgba(255,255,255,0.05)":"none" }}>
+            <div style={{ width:22, height:22, borderRadius:6, flexShrink:0,
+              border:"2px solid rgba(255,255,255,0.15)", background:"transparent" }}/>
+            <span style={{ fontSize:14, color:"#dbd7cf" }}>{task}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Build items for a given day ───────────────────────────
 export function getItemsForDay(day) {
   const prefix = items => items.map(item => ({...item, id:`${day}_${item.id}`}));
   const items = [...prefix(MORNING_ALWAYS), ...prefix(HEALTH_ALWAYS)];
   if (OFF_DAYS.has(day))  items.push({...CARDIO_ITEM, id:`${day}_${CARDIO_ITEM.id}`});
-  if (WORK_DAYS.has(day)) items.push({...WORK_ITEM,   id:`${day}_${WORK_ITEM.id}`});
+  if (WORK_DAYS.has(day)) items.push({...WORK_ITEM, id:`${day}_${WORK_ITEM.id}`});
   if (day==="TUE")        items.push(...prefix(TUE_REFLECT));
+  // Kiki — every day
+  items.push(...prefix(KIKI_ALWAYS));
+  // Home always + extras
   items.push(...prefix(HOME_ALWAYS), ...prefix(EXTRA_HOME[day]||[]));
-  if (WORKOUT_DAYS[day])  items.push({
+  // Workout session
+  if (WORKOUT_DAYS[day]) items.push({
     id:`workout_${day}`, category:"workout",
     label:`Strength session (${WORKOUT_DAYS[day].duration})`,
     icon:"💪", isWorkout:true, day,
   });
+  // Cleaning session (Tue/Wed/Thu)
+  if (CLEAN_DAYS.has(day) && CLEANING_SESSIONS[day]) {
+    const s = CLEANING_SESSIONS[day];
+    items.push({
+      id:`clean_${day}`, category:"home",
+      label:`${s.icon} ${s.title} — deep clean`,
+      icon:"🧽", isCleaning:true, day,
+    });
+  }
+  // Weigh in days
   if (WEIGH_DAYS.has(day)) items.push({
     id:`${day}_weigh`, category:"weigh",
     label:"Log morning weigh-in", icon:"⚖️",
   });
+  // Nightly
   items.push(...prefix(NIGHTLY_ALWAYS));
   return items;
 }
 
+// ── DayView ───────────────────────────────────────────────
 export default function DayView({ checked, toggle, todayCode, waterGlasses, onWaterTap, onWaterUndo }) {
-  const [activeDay,    setActiveDay]    = useState(todayCode);
-  const [workoutModal, setWorkoutModal] = useState(null);
+  const [activeDay,     setActiveDay]     = useState(todayCode);
+  const [workoutModal,  setWorkoutModal]  = useState(null);
+  const [cleaningModal, setCleaningModal] = useState(null);
 
   const items = getItemsForDay(activeDay);
   const done  = items.filter(i=>checked[i.id]).length;
@@ -59,9 +119,10 @@ export default function DayView({ checked, toggle, todayCode, waterGlasses, onWa
 
   return (
     <>
-      {workoutModal&&<WorkoutModal day={workoutModal} onClose={()=>setWorkoutModal(null)}/>}
+      {workoutModal  && <WorkoutModal  day={workoutModal}  onClose={()=>setWorkoutModal(null)}/>}
+      {cleaningModal && <CleaningModal day={cleaningModal} onClose={()=>setCleaningModal(null)}/>}
 
-      {/* Water counter — universal, above everything */}
+      {/* Water counter */}
       <WaterCounter glasses={waterGlasses} onTap={onWaterTap} onReset={onWaterUndo}/>
 
       {/* Day strip */}
@@ -143,15 +204,22 @@ export default function DayView({ checked, toggle, todayCode, waterGlasses, onWa
           <div style={{background:"#17171d",border:"1px solid rgba(255,255,255,0.06)",
             borderRadius:14,overflow:"hidden"}}>
             {ci.map((item,idx)=>{
-              const isDone=!!checked[item.id], isWO=item.isWorkout;
+              const isDone     = !!checked[item.id];
+              const isWO       = item.isWorkout;
+              const isCleaning = item.isCleaning;
+              const isExpandable = isWO || isCleaning;
               return (
                 <div key={item.id} className="row"
-                  onClick={()=>isWO?setWorkoutModal(item.day):toggle(item.id)}
+                  onClick={()=>{
+                    if (isWO) setWorkoutModal(item.day);
+                    else if (isCleaning) setCleaningModal(item.day);
+                    else toggle(item.id);
+                  }}
                   style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",
                     borderBottom:idx<ci.length-1?"1px solid rgba(255,255,255,0.045)":"none",
                     background:isDone?CAT[cat].bg:"transparent"}}>
                   <div className="chk"
-                    onClick={isWO?e=>{e.stopPropagation();toggle(item.id);}:undefined}
+                    onClick={isExpandable?e=>{e.stopPropagation();toggle(item.id);}:undefined}
                     style={{width:21,height:21,borderRadius:6,
                       border:isDone?"none":"2px solid rgba(255,255,255,0.18)",
                       background:isDone?CAT[cat].color:"transparent",
@@ -163,7 +231,11 @@ export default function DayView({ checked, toggle, todayCode, waterGlasses, onWa
                   <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
                   <span style={{fontSize:14,flex:1,color:isDone?"#555":"#dbd7cf",
                     textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
-                  {isWO&&<span style={{fontSize:11,color:"#38bdf8",flexShrink:0}}>View →</span>}
+                  {isExpandable&&(
+                    <span style={{fontSize:11,color:isWO?"#38bdf8":"#fb923c",flexShrink:0}}>
+                      View →
+                    </span>
+                  )}
                 </div>
               );
             })}
