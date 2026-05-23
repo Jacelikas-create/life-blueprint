@@ -148,6 +148,15 @@ export default function App() {
       return next;
     });
   }
+  // Draft — saves in-progress weights without locking or counting toward streak
+  function saveDraftLog(day, draft) {
+    const key = `draft_${wk}_${day}`;
+    setWorkoutLogs(prev => {
+      const next = {...prev, [key]:draft};
+      save({ workout_logs:next });
+      return next;
+    });
+  }
 
   // ── Food log ───────────────────────────────────────────────
   // updateLog: called on every food add/remove (not locked yet)
@@ -301,7 +310,7 @@ export default function App() {
         )}
         {view==="workout" && (
           <WorkoutTracker workoutLogs={workoutLogs} onSaveLog={saveWorkoutLog}
-            streak={streak} totalWorkouts={totalWorkouts}/>
+            onSaveDraft={saveDraftLog} streak={streak} totalWorkouts={totalWorkouts}/>
         )}
         {view==="food" && (
           <FoodTab
