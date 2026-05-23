@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { WORKOUTS, DAY_LABELS } from "../constants";
 import { getWeekKey, formatDateLong } from "../utils";
 
@@ -32,7 +32,7 @@ function StreakCard({ streak, totalWorkouts }) {
 }
 
 function ExerciseRow({ exercise, currentWeight, lastWeight, onChange, locked }) {
-  const diff = currentWeight && lastWeight ? currentWeight - lastWeight : null;
+  const diff  = currentWeight && lastWeight ? currentWeight - lastWeight : null;
   const arrow = diff===null?null:diff>0?"🟢":diff<0?"🔴":"⚪";
   return (
     <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
@@ -55,34 +55,35 @@ function ExerciseRow({ exercise, currentWeight, lastWeight, onChange, locked }) 
   );
 }
 
-function HistoryCard({ weekKey, dayKey, log, workout }) {
+function HistoryCard({ dayKey, log, workout }) {
   const [open, setOpen] = useState(false);
   if (!log?.lockedDate) return null;
-  const label = `${DAY_LABELS[dayKey]} — ${log.lockedDate}`;
   return (
     <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
       borderRadius:12, marginBottom:10, overflow:"hidden" }}>
-      <div onClick={() => setOpen(o=>!o)} style={{ display:"flex", justifyContent:"space-between",
+      <div onClick={()=>setOpen(o=>!o)} style={{ display:"flex", justifyContent:"space-between",
         alignItems:"center", padding:"12px 14px", cursor:"pointer" }}>
         <div>
-          <div style={{ fontSize:12, fontWeight:600, color:"#dbd7cf" }}>{label}</div>
+          <div style={{ fontSize:12, fontWeight:600, color:"#dbd7cf" }}>
+            {DAY_LABELS[dayKey]} — {log.lockedDate}
+          </div>
           <div style={{ fontSize:10, color:"#555", marginTop:2 }}>{workout.title}</div>
         </div>
         <span style={{ color:"#555", fontSize:14, transform:open?"rotate(180deg)":"none",
           transition:"transform 0.2s" }}>▾</span>
       </div>
-      {open && (
+      {open&&(
         <div style={{ borderTop:"1px solid rgba(255,255,255,0.06)", padding:"12px 14px" }}>
-          {workout.exercises.map(ex => (
+          {workout.exercises.map(ex=>(
             <div key={ex.id} style={{ display:"flex", justifyContent:"space-between",
               padding:"6px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
               <span style={{ fontSize:12, color:"#888" }}>{ex.name}</span>
               <span style={{ fontSize:12, fontWeight:600, color:"#ece9e3" }}>
-                {log.weights?.[ex.id] ? `${log.weights[ex.id]} lbs` : "—"}
+                {log.weights?.[ex.id]?`${log.weights[ex.id]} lbs`:"—"}
               </span>
             </div>
           ))}
-          {log.note && (
+          {log.note&&(
             <div style={{ marginTop:10, padding:"10px 12px", background:"rgba(255,255,255,0.03)",
               borderRadius:8, fontSize:12, color:"#888", lineHeight:1.6, fontStyle:"italic" }}>
               "{log.note}"
@@ -94,53 +95,74 @@ function HistoryCard({ weekKey, dayKey, log, workout }) {
   );
 }
 
-export default function WorkoutTracker({ workoutLogs, onSaveLog, streak, totalWorkouts }) {
-  const wk = getWeekKey();
-  const [activeDay, setActiveDay] = useState("TUE");
-  const [showHistory, setShowHistory] = useState(false);
+export default function WorkoutTracker({ workoutLogs, onSaveLog, onSaveDraft, streak, totalWorkouts }) {
+  const wk        = getWeekKey();
   const todayDate = new Date().toISOString().slice(0, 10);
-  const workout = WORKOUTS[activeDay];
-  const currentLog = workoutLogs[`${wk}_${activeDay}`] || {};
-  const currentWeights = currentLog.weights || {};
-  const lockedDate = currentLog.lockedDate || null;
-  const isLocked = lockedDate && lockedDate !== todayDate;
-  const isSavedToday = lockedDate === todayDate;
+  const [activeDay,    setActiveDay]    = useState("TUE");
+  const [showHistory,  setShowHistory]  = useState(false);
 
-  const lastWkNum = parseInt(wk.split("W")[1]) - 1;
-  const lastWkKey = `${wk.split("W")[0]}W${lastWkNum}`;
+  const workout     = WORKOUTS[activeDay];
+  const currentLog  = workoutLogs[`${wk}_${activeDay}`] || {};
+  const lockedDate  = currentLog.lockedDate || null;
+  const isLocked    = lockedDate && lockedDate !== todayDate;
+  const isSavedToday= lockedDate === todayDate;
+
+  // Draft weights — in-progress weights before submitting
+  const draftKey    = `draft_${wk}_${activeDay}`;
+  const savedDraft  = workoutLogs[draftKey] || {};
+
+  const lastWkNum   = parseInt(wk.split("W")[1]) - 1;
+  const lastWkKey   = `${wk.split("W")[0]}W${lastWkNum}`;
   const lastWeights = workoutLogs[`${lastWkKey}_${activeDay}`]?.weights || {};
 
-  const [weights, setWeights] = useState(currentWeights);
-  const [note,    setNote]    = useState(currentLog.note || "");
+  // Local weight state — initialized from locked log or draft
+  const [weights, setWeights] = useState(currentLog.weights || savedDraft.weights || {});
+  const [note,    setNote]    = useState(currentLog.note    || savedDraft.note    || "");
 
+  // When switching days, load that day's draft or locked weights
   function handleDayChange(day) {
     setActiveDay(day);
-    const log = workoutLogs[`${wk}_${day}`] || {};
-    setWeights(log.weights || {});
-    setNote(log.note || "");
+    const log   = workoutLogs[`${wk}_${day}`] || {};
+    const draft = workoutLogs[`draft_${wk}_${day}`] || {};
+    setWeights(log.weights || draft.weights || {});
+    setNote(log.note       || draft.note    || "");
+  }
+
+  // Save draft to Supabase whenever weights change
+  function handleWeightChange(exId, val) {
+    const newWeights = {...weights, [exId]:val};
+    setWeights(newWeights);
+    // Save draft immediately so it persists through refresh
+    onSaveDraft(activeDay, { weights:newWeights, note });
+  }
+
+  function handleNoteChange(val) {
+    setNote(val);
+    onSaveDraft(activeDay, { weights, note:val });
   }
 
   function handleSave() {
-    const allFilled = workout.exercises.every(ex => weights[ex.id]);
+    const allFilled = workout.exercises.every(ex=>weights[ex.id]);
     if (!allFilled) return;
-    onSaveLog(activeDay, { weights, note, lockedDate: todayDate });
+    onSaveLog(activeDay, { weights, note, lockedDate:todayDate });
   }
 
-  const allFilled = workout.exercises.every(ex => weights[ex.id]);
+  const allFilled = workout.exercises.every(ex=>weights[ex.id]);
 
-  // Build history list — all past logged sessions
+  // History — all past locked sessions
   const historyItems = [];
-  Object.entries(workoutLogs).forEach(([key, log]) => {
-    const parts = key.split("_");
+  Object.entries(workoutLogs).forEach(([key, log])=>{
+    if (key.startsWith("draft_")) return;
+    const parts  = key.split("_");
     if (parts.length < 2) return;
-    const dayKey = parts[parts.length - 1];
-    const weekKey = parts.slice(0, -1).join("_");
-    if (weekKey === wk) return; // skip current week
+    const dayKey = parts[parts.length-1];
+    const weekKey= parts.slice(0,-1).join("_");
+    if (weekKey===wk) return;
     if (!WORKOUTS[dayKey]) return;
     if (!log?.lockedDate) return;
-    historyItems.push({ weekKey, dayKey, log, key });
+    historyItems.push({dayKey,log,key});
   });
-  historyItems.sort((a, b) => b.log.lockedDate.localeCompare(a.log.lockedDate));
+  historyItems.sort((a,b)=>b.log.lockedDate.localeCompare(a.log.lockedDate));
 
   return (
     <div style={{ padding:"18px 20px 0" }}>
@@ -148,18 +170,18 @@ export default function WorkoutTracker({ workoutLogs, onSaveLog, streak, totalWo
         Workout Tracker
       </div>
       <div style={{ fontSize:11, color:"#555", marginBottom:20 }}>
-        Log your working weight · locks after the day ends
+        Weights save as you type · submits to history when all filled
       </div>
 
       <StreakCard streak={streak} totalWorkouts={totalWorkouts}/>
 
       {/* Day tabs */}
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-        {WORKOUT_DAYS.map(day => {
-          const log = workoutLogs[`${wk}_${day}`];
+        {WORKOUT_DAYS.map(day=>{
+          const log  = workoutLogs[`${wk}_${day}`];
           const done = log?.lockedDate;
           return (
-            <button key={day} onClick={() => handleDayChange(day)} style={{
+            <button key={day} onClick={()=>handleDayChange(day)} style={{
               flex:1, padding:"10px 8px", borderRadius:12, border:"none", cursor:"pointer",
               fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:600,
               background:activeDay===day?"#ece9e3":"rgba(255,255,255,0.06)",
@@ -191,16 +213,16 @@ export default function WorkoutTracker({ workoutLogs, onSaveLog, streak, totalWo
           )}
         </div>
 
-        {workout.exercises.map(ex => (
+        {workout.exercises.map(ex=>(
           <ExerciseRow key={ex.id} exercise={ex}
             currentWeight={weights[ex.id]} lastWeight={lastWeights[ex.id]}
-            onChange={val => setWeights(prev => ({...prev,[ex.id]:val}))}
+            onChange={val=>handleWeightChange(ex.id, val)}
             locked={isLocked}/>
         ))}
 
         {/* Notes */}
         <div style={{ padding:"12px 14px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-          <textarea value={note} onChange={e=>!isLocked&&setNote(e.target.value)}
+          <textarea value={note} onChange={e=>!isLocked&&handleNoteChange(e.target.value)}
             disabled={isLocked} placeholder="Session notes — how did it feel? Any PRs?"
             rows={2} style={{ width:"100%", background:"rgba(255,255,255,0.03)",
               border:"1px solid rgba(255,255,255,0.07)", borderRadius:8, padding:"10px 12px",
@@ -239,30 +261,29 @@ export default function WorkoutTracker({ workoutLogs, onSaveLog, streak, totalWo
         </div>
       </div>
 
-      {/* Note */}
+      {/* Session note */}
       <div style={{ background:"rgba(255,255,255,0.03)", borderRadius:12, padding:"12px 14px",
         fontSize:12, color:"#555", lineHeight:1.6, marginBottom:20 }}>
         {workout.note}
       </div>
 
       {/* History toggle */}
-      <button onClick={() => setShowHistory(o=>!o)} style={{ width:"100%", padding:"12px",
+      <button onClick={()=>setShowHistory(o=>!o)} style={{ width:"100%", padding:"12px",
         background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)",
         borderRadius:12, color:"#777", fontFamily:"'DM Sans',sans-serif", fontSize:13,
         cursor:"pointer", marginBottom:16 }}>
         {showHistory?"Hide":"Show"} workout history ({historyItems.length} sessions)
       </button>
 
-      {showHistory && (
+      {showHistory&&(
         <div style={{ marginBottom:20 }}>
-          {historyItems.length === 0 ? (
+          {historyItems.length===0 ? (
             <div style={{ textAlign:"center", color:"#555", fontSize:13, padding:"20px 0" }}>
               No history yet — keep logging and it'll show up here
             </div>
           ) : (
-            historyItems.map(({ weekKey, dayKey, log, key }) => (
-              <HistoryCard key={key} weekKey={weekKey} dayKey={dayKey}
-                log={log} workout={WORKOUTS[dayKey]}/>
+            historyItems.map(({dayKey,log,key})=>(
+              <HistoryCard key={key} dayKey={dayKey} log={log} workout={WORKOUTS[dayKey]}/>
             ))
           )}
         </div>
