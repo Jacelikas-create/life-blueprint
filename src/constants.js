@@ -26,6 +26,43 @@ export const CALORIE_TARGET = 2150;
 export const PROTEIN_TARGET = 185;
 export const WATER_GOAL     = 8;
 
+// ── Household par items ───────────────────────────────────
+export const PAR_CATEGORIES = [
+  {
+    id:"bathroom", label:"Bathroom", icon:"🛁",
+    items:[
+      { id:"p1", name:"Hand soap",      par:6, unit:"bottles" },
+      { id:"p2", name:"Shampoo",        par:1, unit:"bottles" },
+      { id:"p3", name:"Conditioner",    par:1, unit:"bottles" },
+      { id:"p4", name:"Toilet paper",   par:6, unit:"rolls"   },
+      { id:"p5", name:"Toothpaste",     par:2, unit:"tubes"   },
+    ],
+  },
+  {
+    id:"kitchen", label:"Kitchen", icon:"🍳",
+    items:[
+      { id:"p6",  name:"Dish soap",      par:1, unit:"bottles" },
+      { id:"p7",  name:"Paper towels",   par:4, unit:"rolls"   },
+      { id:"p8",  name:"Trash bags",     par:1, unit:"boxes"   },
+      { id:"p9",  name:"Sponges (Scrub Daddy)", par:2, unit:"sponges" },
+    ],
+  },
+  {
+    id:"laundry", label:"Laundry", icon:"👕",
+    items:[
+      { id:"p10", name:"Detergent",      par:1, unit:"bottles" },
+      { id:"p11", name:"Dryer sheets",   par:1, unit:"boxes"   },
+    ],
+  },
+  {
+    id:"pet", label:"Kiki 🐱", icon:"🐱",
+    items:[
+      { id:"p12", name:"Dry cat food",   par:1, unit:"bags"    },
+      { id:"p13", name:"Cat litter",     par:1, unit:"bags"    },
+    ],
+  },
+];
+
 // ── Workout data — Phase 1 ────────────────────────────────
 export const WORKOUTS = {
   TUE: {
@@ -145,6 +182,7 @@ export const EXTRA_HOME = {
   SUN:[
     { id:"h_sun1", category:"home",  label:"Wipe down all surfaces (reset week)", icon:"🧼" },
     { id:"h_sun2", category:"night", label:"Lay out tomorrow's clothes",          icon:"👕" },
+    { id:"h_sun3", category:"home",  label:"Check household par levels",          icon:"📦", isPar:true },
   ],
 };
 export const TUE_REFLECT = [
