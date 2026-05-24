@@ -8,7 +8,7 @@ import {
 import ProgressRing from "./ProgressRing";
 import WorkoutModal from "./WorkoutModal";
 import WaterCounter from "./WaterCounter";
-import { ParModal } from "./ParSystem";
+import  ParModal  from "./ParSystem";
 
 const WORKOUT_DAYS = { TUE:WORKOUTS.TUE, THU:WORKOUTS.THU, SUN:WORKOUTS.SUN };
 const CLEAN_DAYS   = new Set(["TUE","WED","THU"]);
