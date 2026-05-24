@@ -26,6 +26,7 @@ export default function App() {
   const [foodDatabase,     setFoodDatabase]     = useState([]);
   const [mealPrep,         setMealPrep]         = useState({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [parStock,         setParStock]         = useState({});
   const [loading,          setLoading]          = useState(true);
 
   // ── Load from Supabase — single source of truth ───────────
@@ -46,6 +47,7 @@ export default function App() {
         setFoodLog(data.food_log              || {}); // always set from DB, never default mid-render
         setFoodDatabase(data.food_database    || []);
         setMealPrep(data.meal_prep            || {});
+        setParStock(data.par_stock            || {});
       } else {
         // DB error — set safe defaults so app still renders
         setFoodLog({});
@@ -175,14 +177,6 @@ export default function App() {
       return next;
     });
   }
-  // seedData: merges seed entries without overwriting existing data
-  function seedFoodData(seedEntries) {
-    setFoodLog(prev => {
-      const next = { ...seedEntries, ...prev }; // existing data wins over seeds
-      save({ food_log:next });
-      return next;
-    });
-  }
   function addToFoodDatabase(food) {
     setFoodDatabase(prev => {
       const next = [...prev, food];
@@ -198,6 +192,10 @@ export default function App() {
       save({ meal_prep:next });
       return next;
     });
+  }
+  function updateParStock(newStock) {
+    setParStock(newStock);
+    save({ par_stock:newStock });
   }
 
   const allErrands       = [...DEFAULT_ERRANDS,...customErrands];
@@ -299,7 +297,8 @@ export default function App() {
       <div style={{ padding:"18px 20px 0" }}>
         {view==="days" && (
           <DayView checked={checked} toggle={toggle} todayCode={todayCode}
-            waterGlasses={waterGlasses} onWaterTap={onWaterTap} onWaterUndo={onWaterUndo}/>
+            waterGlasses={waterGlasses} onWaterTap={onWaterTap} onWaterUndo={onWaterUndo}
+            parStock={parStock} onUpdatePar={updateParStock}/>
         )}
         {view==="errands" && (
           <ErrandsPanel errands={allErrands} errandsDone={errandsDone}
@@ -317,13 +316,12 @@ export default function App() {
             foodLog={foodLog}
             onUpdateLog={updateFoodLog}
             onSubmitDay={submitDay}
-            onSeedData={seedFoodData}
             foodDatabase={foodDatabase}
             onAddToDatabase={addToFoodDatabase}
           />
         )}
         {view==="prep" && (
-          <MealPrepTab mealPrep={mealPrep} onUpdateMealPrep={updateMealPrep}/>
+          <MealPrepTab mealPrep={mealPrep} onUpdateMealPrep={updateMealPrep} parStock={parStock}/>
         )}
       </div>
     </div>
