@@ -8,6 +8,7 @@ import {
 import ProgressRing from "./ProgressRing";
 import WorkoutModal from "./WorkoutModal";
 import WaterCounter from "./WaterCounter";
+import { ParModal } from "./ParSystem";
 
 const WORKOUT_DAYS = { TUE:WORKOUTS.TUE, THU:WORKOUTS.THU, SUN:WORKOUTS.SUN };
 const CLEAN_DAYS   = new Set(["TUE","WED","THU"]);
@@ -55,7 +56,13 @@ function CleaningModal({ day, onClose }) {
 // ── Build items for a given day ───────────────────────────
 export function getItemsForDay(day) {
   const prefix = items => items.map(item => ({...item, id:`${day}_${item.id}`}));
-  const items = [...prefix(MORNING_ALWAYS), ...prefix(HEALTH_ALWAYS)];
+  const items = [...prefix(MORNING_ALWAYS)];
+  // Weigh-in first thing on weigh days — before anything else after morning routine
+  if (WEIGH_DAYS.has(day)) items.push({
+    id:`${day}_weigh`, category:"weigh",
+    label:"Log morning weigh-in", icon:"⚖️",
+  });
+  items.push(...prefix(HEALTH_ALWAYS));
   if (OFF_DAYS.has(day))  items.push({...CARDIO_ITEM, id:`${day}_${CARDIO_ITEM.id}`});
   if (WORK_DAYS.has(day)) items.push({...WORK_ITEM, id:`${day}_${WORK_ITEM.id}`});
   if (day==="TUE")        items.push(...prefix(TUE_REFLECT));
@@ -78,21 +85,17 @@ export function getItemsForDay(day) {
       icon:"🧽", isCleaning:true, day,
     });
   }
-  // Weigh in days
-  if (WEIGH_DAYS.has(day)) items.push({
-    id:`${day}_weigh`, category:"weigh",
-    label:"Log morning weigh-in", icon:"⚖️",
-  });
   // Nightly
   items.push(...prefix(NIGHTLY_ALWAYS));
   return items;
 }
 
 // ── DayView ───────────────────────────────────────────────
-export default function DayView({ checked, toggle, todayCode, waterGlasses, onWaterTap, onWaterUndo }) {
+export default function DayView({ checked, toggle, todayCode, waterGlasses, onWaterTap, onWaterUndo, parStock, onUpdatePar }) {
   const [activeDay,     setActiveDay]     = useState(todayCode);
   const [workoutModal,  setWorkoutModal]  = useState(null);
   const [cleaningModal, setCleaningModal] = useState(null);
+  const [showParModal,  setShowParModal]  = useState(false);
 
   const items = getItemsForDay(activeDay);
   const done  = items.filter(i=>checked[i.id]).length;
@@ -121,6 +124,9 @@ export default function DayView({ checked, toggle, todayCode, waterGlasses, onWa
     <>
       {workoutModal  && <WorkoutModal  day={workoutModal}  onClose={()=>setWorkoutModal(null)}/>}
       {cleaningModal && <CleaningModal day={cleaningModal} onClose={()=>setCleaningModal(null)}/>}
+      {showParModal  && (
+        <ParModal parStock={parStock} onUpdate={onUpdatePar} onClose={()=>setShowParModal(false)}/>
+      )}
 
       {/* Water counter */}
       <WaterCounter glasses={waterGlasses} onTap={onWaterTap} onReset={onWaterUndo}/>
@@ -204,41 +210,44 @@ export default function DayView({ checked, toggle, todayCode, waterGlasses, onWa
           <div style={{background:"#17171d",border:"1px solid rgba(255,255,255,0.06)",
             borderRadius:14,overflow:"hidden"}}>
             {ci.map((item,idx)=>{
-              const isDone     = !!checked[item.id];
-              const isWO       = item.isWorkout;
-              const isCleaning = item.isCleaning;
-              const isExpandable = isWO || isCleaning;
-              return (
-                <div key={item.id} className="row"
-                  onClick={()=>{
-                    if (isWO) setWorkoutModal(item.day);
-                    else if (isCleaning) setCleaningModal(item.day);
-                    else toggle(item.id);
-                  }}
-                  style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",
-                    borderBottom:idx<ci.length-1?"1px solid rgba(255,255,255,0.045)":"none",
-                    background:isDone?CAT[cat].bg:"transparent"}}>
-                  <div className="chk"
-                    onClick={isExpandable?e=>{e.stopPropagation();toggle(item.id);}:undefined}
-                    style={{width:21,height:21,borderRadius:6,
-                      border:isDone?"none":"2px solid rgba(255,255,255,0.18)",
-                      background:isDone?CAT[cat].color:"transparent",
-                      display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-                    {isDone&&<svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-                      <path d="M1 4.5L4 7.5L10 1" stroke="#0d0d10" strokeWidth="2"
-                        strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                const isDone     = !!checked[item.id];
+                const isWO       = item.isWorkout;
+                const isCleaning = item.isCleaning;
+                const isPar      = item.isPar;
+                const isExpandable = isWO || isCleaning || isPar;
+                return (
+                  <div key={item.id} className="row"
+                    onClick={()=>{
+                      if (isWO) setWorkoutModal(item.day);
+                      else if (isCleaning) setCleaningModal(item.day);
+                      else if (isPar) setShowParModal(true);
+                      else toggle(item.id);
+                    }}
+                    style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",
+                      borderBottom:idx<ci.length-1?"1px solid rgba(255,255,255,0.045)":"none",
+                      background:isDone?CAT[cat].bg:"transparent"}}>
+                    <div className="chk"
+                      onClick={isExpandable?e=>{e.stopPropagation();toggle(item.id);}:undefined}
+                      style={{width:21,height:21,borderRadius:6,
+                        border:isDone?"none":"2px solid rgba(255,255,255,0.18)",
+                        background:isDone?CAT[cat].color:"transparent",
+                        display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+                      {isDone&&<svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                        <path d="M1 4.5L4 7.5L10 1" stroke="#0d0d10" strokeWidth="2"
+                          strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
+                    <span style={{fontSize:14,flex:1,color:isDone?"#555":"#dbd7cf",
+                      textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
+                    {isExpandable&&(
+                      <span style={{fontSize:11,
+                        color:isWO?"#38bdf8":isPar?"#fb923c":"#fb923c",flexShrink:0}}>
+                        View →
+                      </span>
+                    )}
                   </div>
-                  <span style={{fontSize:15,flexShrink:0}}>{item.icon}</span>
-                  <span style={{fontSize:14,flex:1,color:isDone?"#555":"#dbd7cf",
-                    textDecoration:isDone?"line-through":"none"}}>{item.label}</span>
-                  {isExpandable&&(
-                    <span style={{fontSize:11,color:isWO?"#38bdf8":"#fb923c",flexShrink:0}}>
-                      View →
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         </div>
       ))}
