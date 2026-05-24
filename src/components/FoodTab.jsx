@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { CALORIE_TARGET, PROTEIN_TARGET, DEFAULT_FOODS } from "../constants";
 import { formatDateLong } from "../utils";
 
@@ -7,51 +7,6 @@ const MEAL_SECTIONS = [
   { id:"main",  label:"Main Meal",            icon:"🍽️", color:"#4ade80" },
   { id:"snack", label:"Extra Snacks",         icon:"🍎", color:"#fb923c" },
 ];
-
-// ── Seed data — realistic fake entries for past days ─────
-function getSeedData() {
-  const today = new Date();
-  const seeds = {};
-  // Yesterday
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yd = yesterday.toISOString().slice(0, 10);
-  seeds[yd] = {
-    pre: [
-      { name:"Gold Standard Protein Shake", calories:150, protein:24, emoji:"🥤", logId:1001 },
-      { name:"Greek Yogurt with Granola",   calories:300, protein:18, emoji:"🫙", logId:1002 },
-    ],
-    main: [
-      { name:"Chicken Breast (6oz)",        calories:185, protein:35, emoji:"🍗", logId:1003 },
-      { name:"White Rice (1 cup cooked)",   calories:205, protein:4,  emoji:"🍚", logId:1004 },
-      { name:"Frozen Broccoli (1 cup)",     calories:55,  protein:4,  emoji:"🥦", logId:1005 },
-    ],
-    snack: [
-      { name:"Hard Boiled Eggs (2)",        calories:140, protein:12, emoji:"🥚", logId:1006 },
-    ],
-    locked: true,
-  };
-  // Two days ago
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(today.getDate() - 2);
-  const td = twoDaysAgo.toISOString().slice(0, 10);
-  seeds[td] = {
-    pre: [
-      { name:"Gold Standard Protein Shake", calories:150, protein:24, emoji:"🥤", logId:2001 },
-    ],
-    main: [
-      { name:"88/12 Ground Beef (6oz)",     calories:320, protein:32, emoji:"🥩", logId:2002 },
-      { name:"Cauliflower Rice (1 cup)",    calories:25,  protein:2,  emoji:"🍚", logId:2003 },
-      { name:"Frozen Green Beans (1 cup)",  calories:35,  protein:2,  emoji:"🫘", logId:2004 },
-    ],
-    snack: [
-      { name:"Protein Bar",                 calories:200, protein:20, emoji:"🍫", logId:2005 },
-      { name:"Banana + Peanut Butter",      calories:250, protein:7,  emoji:"🍌", logId:2006 },
-    ],
-    locked: true,
-  };
-  return seeds;
-}
 
 function MacroBar({ label, current, target, color }) {
   const pct  = Math.min(Math.round((current / target) * 100), 100);
@@ -343,29 +298,14 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
 
 export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase, onSeedData }) {
   const [showHistory,  setShowHistory]  = useState(false);
-  const [editingDate,  setEditingDate]  = useState(null); // null = today, string = past date
-  const [seeded,       setSeeded]       = useState(false);
+  const [editingDate,  setEditingDate]  = useState(null);
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Seed fake data on first load if no history exists
-  useEffect(() => {
-    if (seeded) return;
-    const hasHistory = Object.entries(foodLog).some(([date, data]) => date !== today && data?.locked);
-    const hasToday   = !!foodLog[today];
-    if (!hasHistory) {
-      onSeedData(getSeedData());
-    } else if (hasToday && !foodLog[today]?.locked) {
-      // If today exists but isn't locked, make sure we're showing today fresh
-    }
-    setSeeded(true);
-  }, [foodLog]);
-
   // Today's data — only use if key exists for TODAY specifically
-  // Never fall through to a different date's data
   const todayData = foodLog[today] || null;
 
-  // History — all locked days including today if submitted, newest first
+  // History — all locked days, newest first — never filtered by week
   const history = Object.entries(foodLog)
     .filter(([date, data]) => data?.locked)
     .sort(([a],[b]) => b.localeCompare(a))
