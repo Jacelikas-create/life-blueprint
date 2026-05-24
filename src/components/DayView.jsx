@@ -57,9 +57,9 @@ function CleaningModal({ day, onClose }) {
 export function getItemsForDay(day) {
   const prefix = items => items.map(item => ({...item, id:`${day}_${item.id}`}));
   const items = [...prefix(MORNING_ALWAYS)];
-  // Weigh-in first thing on weigh days — before anything else after morning routine
+  // Weigh-in first thing on weigh days — inside morning routine category
   if (WEIGH_DAYS.has(day)) items.push({
-    id:`${day}_weigh`, category:"weigh",
+    id:`${day}_weigh`, category:"morning",
     label:"Log morning weigh-in", icon:"⚖️",
   });
   items.push(...prefix(HEALTH_ALWAYS));
