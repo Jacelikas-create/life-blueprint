@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { RECIPES } from "../constants";
-import { HouseholdShoppingList } from "./ParSystem";
+import { HouseholdShoppingList } from "./ParSystem.jsx";
 
 function RecipeCard({ recipe, onAddToPrep, alreadyAdded }) {
   const [open, setOpen] = useState(false);
