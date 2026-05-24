@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RECIPES } from "../constants";
+import { HouseholdShoppingList } from "./ParSystem";
 
 function RecipeCard({ recipe, onAddToPrep, alreadyAdded }) {
   const [open, setOpen] = useState(false);
@@ -102,7 +103,7 @@ function PrepDaySection({ day, label, prepList, onToggle, onRemove }) {
   );
 }
 
-export default function MealPrepTab({ mealPrep, onUpdateMealPrep }) {
+export default function MealPrepTab({ mealPrep, onUpdateMealPrep, parStock }) {
   const [tab, setTab] = useState("plan"); // "plan" | "recipes"
   const { prepList=[], week="" } = mealPrep;
 
@@ -175,7 +176,10 @@ export default function MealPrepTab({ mealPrep, onUpdateMealPrep }) {
             </>
           )}
 
-          {/* Grocery summary */}
+          {/* Household items below par */}
+          <HouseholdShoppingList parStock={parStock||{}}/>
+
+          {/* Recipe grocery summary */}
           {prepList.length > 0 && (
             <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)",
               borderRadius:14, padding:"14px", marginBottom:20 }}>
