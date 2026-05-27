@@ -1,8 +1,125 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { WORKOUTS, DAY_LABELS } from "../constants";
 import { getWeekKey, formatDateLong } from "../utils";
 
 const WORKOUT_DAYS = ["TUE","THU","SUN"];
+const REST_SECONDS = 90;
+
+// ── Rest Timer ────────────────────────────────────────────
+function RestTimer() {
+  const [timeLeft,  setTimeLeft]  = useState(REST_SECONDS);
+  const [running,   setRunning]   = useState(false);
+  const [done,      setDone]      = useState(false);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(intervalRef.current);
+            setRunning(false);
+            setDone(true);
+            // Beep using Web Audio API
+            try {
+              const ctx = new (window.AudioContext || window.webkitAudioContext)();
+              [0, 0.15, 0.3].forEach(delay => {
+                const osc  = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.2);
+              });
+            } catch(e) {}
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running]);
+
+  function start() {
+    setTimeLeft(REST_SECONDS);
+    setDone(false);
+    setRunning(true);
+  }
+  function reset() {
+    clearInterval(intervalRef.current);
+    setRunning(false);
+    setDone(false);
+    setTimeLeft(REST_SECONDS);
+  }
+
+  const pct     = ((REST_SECONDS - timeLeft) / REST_SECONDS) * 100;
+  const mins    = Math.floor(timeLeft / 60);
+  const secs    = String(timeLeft % 60).padStart(2, "0");
+  const r       = 28, circ = 2 * Math.PI * r;
+  const color   = done ? "#4ade80" : running ? "#38bdf8" : "#555";
+
+  return (
+    <div style={{ padding:"14px", borderTop:"1px solid rgba(255,255,255,0.06)",
+      display:"flex", alignItems:"center", gap:14 }}>
+      {/* Ring */}
+      <div style={{ position:"relative", flexShrink:0, width:68, height:68,
+        display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <svg width={68} height={68} style={{ position:"absolute", transform:"rotate(-90deg)" }}>
+          <circle cx={34} cy={34} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5}/>
+          <circle cx={34} cy={34} r={r} fill="none" stroke={color} strokeWidth={5}
+            strokeDasharray={circ} strokeDashoffset={circ*(1-pct/100)}
+            strokeLinecap="round" style={{ transition:"stroke-dashoffset 0.9s linear, stroke 0.3s" }}/>
+        </svg>
+        <span style={{ fontSize:15, fontWeight:700, color, fontFamily:"monospace", zIndex:1 }}>
+          {mins}:{secs}
+        </span>
+      </div>
+
+      {/* Controls */}
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, color:"#555",
+          textTransform:"uppercase", marginBottom:6 }}>
+          {done ? "✓ Rest complete — get back to it!" : running ? "Resting…" : "90 sec rest timer"}
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          {!running && !done && (
+            <button onClick={start} style={{ padding:"7px 18px", borderRadius:8, border:"none",
+              background:"#38bdf8", color:"#0d0d10", fontFamily:"'DM Sans',sans-serif",
+              fontSize:12, fontWeight:600, cursor:"pointer" }}>
+              Start rest
+            </button>
+          )}
+          {running && (
+            <button onClick={reset} style={{ padding:"7px 18px", borderRadius:8,
+              border:"1px solid rgba(255,255,255,0.1)", background:"transparent",
+              color:"#888", fontFamily:"'DM Sans',sans-serif", fontSize:12, cursor:"pointer" }}>
+              Cancel
+            </button>
+          )}
+          {done && (
+            <button onClick={start} style={{ padding:"7px 18px", borderRadius:8, border:"none",
+              background:"rgba(56,189,248,0.1)", border:"1px solid rgba(56,189,248,0.2)",
+              color:"#38bdf8", fontFamily:"'DM Sans',sans-serif",
+              fontSize:12, fontWeight:600, cursor:"pointer" }}>
+              Again
+            </button>
+          )}
+          {(running || done) && (
+            <button onClick={reset} style={{ padding:"7px 14px", borderRadius:8,
+              border:"1px solid rgba(255,255,255,0.08)", background:"transparent",
+              color:"#555", fontFamily:"'DM Sans',sans-serif", fontSize:12, cursor:"pointer" }}>
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function StreakCard({ streak, totalWorkouts }) {
   return (
@@ -156,10 +273,11 @@ export default function WorkoutTracker({ workoutLogs, onSaveLog, onSaveDraft, st
     const parts  = key.split("_");
     if (parts.length < 2) return;
     const dayKey = parts[parts.length-1];
-    const weekKey= parts.slice(0,-1).join("_");
-    if (weekKey===wk) return;
     if (!WORKOUTS[dayKey]) return;
     if (!log?.lockedDate) return;
+    // Only exclude the currently viewed day's current week entry to avoid duplication
+    const weekKey = parts.slice(0,-1).join("_");
+    if (weekKey===wk && dayKey===activeDay) return;
     historyItems.push({dayKey,log,key});
   });
   historyItems.sort((a,b)=>b.log.lockedDate.localeCompare(a.log.lockedDate));
@@ -219,6 +337,9 @@ export default function WorkoutTracker({ workoutLogs, onSaveLog, onSaveDraft, st
             onChange={val=>handleWeightChange(ex.id, val)}
             locked={isLocked}/>
         ))}
+
+        {/* Rest timer */}
+        {!isLocked && <RestTimer/>}
 
         {/* Notes */}
         <div style={{ padding:"12px 14px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
