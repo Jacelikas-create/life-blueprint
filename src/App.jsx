@@ -27,6 +27,8 @@ export default function App() {
   const [mealPrep,         setMealPrep]         = useState({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [parStock,         setParStock]         = useState({});
+  const [saving,           setSaving]           = useState(false);
+  const [saveError,        setSaveError]        = useState(false);
   const [loading,          setLoading]          = useState(true);
 
   // ── Load from Supabase — single source of truth ───────────
@@ -57,10 +59,29 @@ export default function App() {
     load();
   }, []);
 
-  async function save(patch) {
-    await supabase.from("checklist_progress")
-      .update({ ...patch, updated_at:new Date().toISOString() })
-      .eq("id","singleton");
+  async function save(patch, retries = 3) {
+    setSaving(true);
+    setSaveError(false);
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        const { error } = await supabase
+          .from("checklist_progress")
+          .update({ ...patch, updated_at:new Date().toISOString() })
+          .eq("id","singleton");
+        if (error) throw error;
+        setSaving(false);
+        return true;
+      } catch(e) {
+        console.error(`Save attempt ${attempt + 1} failed:`, e);
+        if (attempt < retries - 1) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // exponential backoff
+        }
+      }
+    }
+    setSaving(false);
+    setSaveError(true);
+    setTimeout(() => setSaveError(false), 5000);
+    return false;
   }
 
   // ── Checklist ──────────────────────────────────────────────
@@ -318,6 +339,8 @@ export default function App() {
             onSubmitDay={submitDay}
             foodDatabase={foodDatabase}
             onAddToDatabase={addToFoodDatabase}
+            saving={saving}
+            saveError={saveError}
           />
         )}
         {view==="prep" && (
