@@ -159,11 +159,11 @@ function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
   );
 }
 
-// ── Day log editor — used for both today and editing past days ──
-function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodDatabase, onAddToDatabase }) {
+// ── Day editor ────────────────────────────────────────────
+function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodDatabase, onAddToDatabase, saving, saveError }) {
   const [addingTo, setAddingTo] = useState(null);
-  const isLocked = !!dayData?.locked;
-  const data     = dayData || { pre:[], main:[], snack:[], locked:false };
+  const isLocked  = !!dayData?.locked;
+  const data      = dayData || { pre:[], main:[], snack:[], locked:false };
 
   const allEntries    = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
   const totalCalories = allEntries.reduce((s,f)=>s+f.calories,0);
@@ -198,10 +198,11 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
           onAdd={food=>addFood(addingTo,food)} onClose={()=>setAddingTo(null)}/>
       )}
 
-      {/* Date label */}
       <div style={{ fontSize:11, color:"#555", marginBottom:16 }}>
         {dateLabel}
         {isLocked && <span style={{ marginLeft:8, color:"#fb923c" }}>🔒 Submitted</span>}
+        {saving && <span style={{ marginLeft:8, color:"#888" }}>Saving…</span>}
+        {saveError && <span style={{ marginLeft:8, color:"#fb923c" }}>⚠️ Save failed — check connection</span>}
       </div>
 
       {/* Summary bar */}
@@ -273,8 +274,9 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
           <button onClick={()=>onSubmit(date, {...data, locked:true})}
             style={{ width:"100%", padding:"13px", borderRadius:12, border:"none",
               background:"#4ade80", color:"#0d0d10",
-              fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, cursor:"pointer" }}>
-            Submit {isToday?"today's":"this day's"} food log
+              fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, cursor:"pointer",
+              opacity:saving?0.6:1 }}>
+            {saving?"Saving…":"Submit today's food log"}
           </button>
         )}
         {isLocked && (
@@ -296,18 +298,17 @@ function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodD
   );
 }
 
-export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase, onSeedData }) {
-  const [showHistory,  setShowHistory]  = useState(false);
-  const [editingDate,  setEditingDate]  = useState(null);
+// ── Main FoodTab ──────────────────────────────────────────
+export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase, saving, saveError }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const [editingDate, setEditingDate] = useState(null);
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Today's data — only use if key exists for TODAY specifically
+  const today     = new Date().toISOString().slice(0, 10);
   const todayData = foodLog[today] || null;
 
-  // History — all locked days, newest first — never filtered by week
+  // History — all locked days, newest first, permanent
   const history = Object.entries(foodLog)
-    .filter(([date, data]) => data?.locked)
+    .filter(([, data]) => data?.locked)
     .sort(([a],[b]) => b.localeCompare(a))
     .map(([date, data]) => {
       const entries = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
@@ -315,7 +316,6 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         date,
         calories: Math.round(entries.reduce((s,f)=>s+f.calories,0)),
         protein:  Math.round(entries.reduce((s,f)=>s+(f.protein||0),0)),
-        isToday:  date === today,
       };
     });
 
@@ -324,15 +324,12 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
     setEditingDate(date === today ? null : date);
   }
 
-  // What are we showing?
   const viewingDate = editingDate || today;
   const viewingData = foodLog[viewingDate] || null;
   const isViewingToday = viewingDate === today;
 
   return (
     <div style={{ padding:"18px 20px 0" }}>
-
-      {/* Header + back button if editing past day */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
         <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>
           Food Log
@@ -346,7 +343,6 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         )}
       </div>
 
-      {/* Day editor — today or selected past day */}
       <DayEditor
         key={viewingDate}
         date={viewingDate}
@@ -355,12 +351,14 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
         onUpdate={onUpdateLog}
         onSubmit={(date, data) => {
           onSubmitDay(date, data);
-          setEditingDate(null);   // snap back to today
-          setShowHistory(true);   // open history so user sees it land
+          setEditingDate(null);
+          setShowHistory(true);
         }}
         onUnlock={handleUnlock}
         foodDatabase={foodDatabase}
         onAddToDatabase={onAddToDatabase}
+        saving={saving}
+        saveError={saveError}
       />
 
       {/* History toggle */}
@@ -376,7 +374,6 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
           {showHistory && (
             <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
               borderRadius:14, overflow:"hidden", marginBottom:20 }}>
-              {/* Header row */}
               <div style={{ display:"flex", padding:"8px 14px",
                 borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
                 <span style={{ flex:2, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1 }}>Date</span>
@@ -392,9 +389,7 @@ export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabas
                   <div key={row.date} style={{ display:"flex", alignItems:"center",
                     padding:"11px 14px",
                     borderBottom:i<history.length-1?"1px solid rgba(255,255,255,0.045)":"none" }}>
-                    <span style={{ flex:2, fontSize:13, color:"#888" }}>
-                      {formatDateLong(row.date)}
-                    </span>
+                    <span style={{ flex:2, fontSize:13, color:"#888" }}>{formatDateLong(row.date)}</span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:calColor, textAlign:"right" }}>
                       {row.calories}
                     </span>
