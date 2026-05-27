@@ -92,7 +92,7 @@ export const WORKOUTS = {
     note:"Straight sets — same weight every set. Legs are your biggest muscle group — biggest calorie burn of the week.",
     exercises:[
       { id:"sun_e1", name:"Goblet squat",     tip:"Hold one heavy DB at chest · full depth · 3 sets × 15" },
-      { id:"sun_e2", name:"Romanian deadlift", tip:"Both DBs · hinge at hips, soft knees · 3 sets × 12–15" },
+      { id:"sun_e2", name:"Dumbbell good morning", tip:"DB at chest · push hips back · feel stretch in hamstrings · 3 sets × 12–15" },
       { id:"sun_e3", name:"Dumbbell step-up",  tip:"Use bench · drive through heel · 3 sets × 12 each" },
       { id:"sun_e4", name:"Sumo squat",        tip:"Wide stance · one DB between legs · 3 sets × 15" },
       { id:"sun_e5", name:"Plank",             tip:"Elbows on floor · neutral spine · 3 sets × 30 sec" },
@@ -186,7 +186,6 @@ export const EXTRA_HOME = {
   ],
 };
 export const TUE_REFLECT = [
-  { id:"r1", category:"reflect", label:"Weigh in — same time, before eating",          icon:"⚖️" },
   { id:"r2", category:"reflect", label:"Review last week — what did you hit or miss?", icon:"📋" },
   { id:"r3", category:"reflect", label:"Set your focus & intentions for this week",    icon:"🎯" },
 ];
