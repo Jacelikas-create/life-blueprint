@@ -7,7 +7,7 @@ import ErrandsPanel from "./components/ErrandsPanel";
 import WeightTab from "./components/WeightTab";
 import WorkoutTracker from "./components/WorkoutTracker";
 import FoodTab from "./components/FoodTab";
-import MealPrepTab from "./components/MealPrepTab";
+import ParTab from "./components/ParTab";
 
 export default function App() {
   const todayCode = getTodayCode();
@@ -22,16 +22,14 @@ export default function App() {
   const [streak,           setStreak]           = useState(0);
   const [totalWorkouts,    setTotalWorkouts]    = useState(0);
   const [waterLog,         setWaterLog]         = useState({});
-  const [foodLog,          setFoodLog]          = useState(null); // null = not yet loaded
-  const [foodDatabase,     setFoodDatabase]     = useState([]);
-  const [mealPrep,         setMealPrep]         = useState({});
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [mealPlan,         setMealPlan]         = useState(null); // null = not yet loaded
   const [parStock,         setParStock]         = useState({});
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [saving,           setSaving]           = useState(false);
   const [saveError,        setSaveError]        = useState(false);
   const [loading,          setLoading]          = useState(true);
 
-  // ── Load from Supabase — single source of truth ───────────
+  // ── Load from Supabase ─────────────────────────────────────
   useEffect(() => {
     async function load() {
       const { data, error } = await supabase
@@ -46,13 +44,13 @@ export default function App() {
         setStreak(data.streak                 || 0);
         setTotalWorkouts(data.total_workouts  || 0);
         setWaterLog(data.water_log            || {});
-        setFoodLog(data.food_log              || {}); // always set from DB, never default mid-render
-        setFoodDatabase(data.food_database    || []);
-        setMealPrep(data.meal_prep            || {});
+        // meal_plan is keyed by week so each week starts fresh
+        const savedPlan = data.meal_plan || {};
+        const planWeek  = savedPlan.week;
+        setMealPlan(planWeek === wk ? (savedPlan.data || {}) : {});
         setParStock(data.par_stock            || {});
       } else {
-        // DB error — set safe defaults so app still renders
-        setFoodLog({});
+        setMealPlan({});
       }
       setLoading(false);
     }
@@ -66,7 +64,7 @@ export default function App() {
       try {
         const { error } = await supabase
           .from("checklist_progress")
-          .update({ ...patch, updated_at:new Date().toISOString() })
+          .update({ ...patch, updated_at: new Date().toISOString() })
           .eq("id","singleton");
         if (error) throw error;
         setSaving(false);
@@ -74,7 +72,7 @@ export default function App() {
       } catch(e) {
         console.error(`Save attempt ${attempt + 1} failed:`, e);
         if (attempt < retries - 1) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // exponential backoff
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
         }
       }
     }
@@ -87,8 +85,8 @@ export default function App() {
   // ── Checklist ──────────────────────────────────────────────
   function toggle(id) {
     setChecked(prev => {
-      const next = {...prev,[id]:!prev[id]};
-      save({ checked:{ week:wk, data:next } });
+      const next = { ...prev, [id]: !prev[id] };
+      save({ checked: { week:wk, data:next } });
       return next;
     });
   }
@@ -96,14 +94,14 @@ export default function App() {
     setChecked({});
     setErrandsDone({});
     setShowResetConfirm(false);
-    await save({ checked:{ week:wk, data:{} }, errands_done:{ week:wk, data:{} } });
+    await save({ checked: { week:wk, data:{} }, errands_done: { week:wk, data:{} } });
   }
 
   // ── Errands ────────────────────────────────────────────────
   function toggleErrand(id) {
     setErrandsDone(prev => {
-      const next = {...prev,[id]:!prev[id]};
-      save({ errands_done:{ week:wk, data:next } });
+      const next = { ...prev, [id]: !prev[id] };
+      save({ errands_done: { week:wk, data:next } });
       return next;
     });
   }
@@ -111,17 +109,17 @@ export default function App() {
     const newE = { id:`custom_${Date.now()}`, label, icon:"📌", custom:true };
     setCustomErrands(prev => {
       const next = [...prev, newE];
-      save({ errands_custom:next });
+      save({ errands_custom: next });
       return next;
     });
   }
   function deleteErrand(id) {
     setCustomErrands(prev => {
       const next = prev.filter(e => e.id !== id);
-      save({ errands_custom:next });
+      save({ errands_custom: next });
       return next;
     });
-    setErrandsDone(prev => { const next = {...prev}; delete next[id]; return next; });
+    setErrandsDone(prev => { const next = { ...prev }; delete next[id]; return next; });
   }
 
   // ── Water ──────────────────────────────────────────────────
@@ -131,16 +129,16 @@ export default function App() {
   function onWaterTap() {
     const next = Math.min(waterGlasses + 1, 8);
     setWaterLog(prev => {
-      const newLog = {...prev, [waterDayKey]:next};
-      save({ water_log:newLog });
+      const newLog = { ...prev, [waterDayKey]: next };
+      save({ water_log: newLog });
       return newLog;
     });
   }
   function onWaterUndo() {
     const next = Math.max(waterGlasses - 1, 0);
     setWaterLog(prev => {
-      const newLog = {...prev, [waterDayKey]:next};
-      save({ water_log:newLog });
+      const newLog = { ...prev, [waterDayKey]: next };
+      save({ water_log: newLog });
       return newLog;
     });
   }
@@ -150,7 +148,7 @@ export default function App() {
     setWeightEntries(prev => {
       const filtered = prev.filter(e => e.date !== entry.date);
       const next = [...filtered, entry].sort((a,b) => a.date.localeCompare(b.date));
-      save({ weight_entries:next });
+      save({ weight_entries: next });
       return next;
     });
   }
@@ -159,7 +157,7 @@ export default function App() {
   function saveWorkoutLog(day, log) {
     const key = `${wk}_${day}`;
     setWorkoutLogs(prev => {
-      const next = {...prev,[key]:log};
+      const next = { ...prev, [key]: log };
       const WORKOUT_DAYS = ["TUE","THU","SUN"];
       const allDone    = WORKOUT_DAYS.every(d => next[`${wk}_${d}`]?.lockedDate);
       const wasAllDone = WORKOUT_DAYS.every(d => prev[`${wk}_${d}`]?.lockedDate);
@@ -167,64 +165,37 @@ export default function App() {
       if (allDone && !wasAllDone) newStreak = streak + 1;
       setStreak(newStreak);
       setTotalWorkouts(newTotal);
-      save({ workout_logs:next, streak:newStreak, total_workouts:newTotal });
+      save({ workout_logs: next, streak: newStreak, total_workouts: newTotal });
       return next;
     });
   }
-  // Draft — saves in-progress weights without locking or counting toward streak
   function saveDraftLog(day, draft) {
     const key = `draft_${wk}_${day}`;
     setWorkoutLogs(prev => {
-      const next = {...prev, [key]:draft};
-      save({ workout_logs:next });
+      const next = { ...prev, [key]: draft };
+      save({ workout_logs: next });
       return next;
     });
   }
 
-  // ── Food log ───────────────────────────────────────────────
-  // updateLog: called on every food add/remove (not locked yet)
-  function updateFoodLog(date, dayLog) {
-    setFoodLog(prev => {
-      const next = {...prev, [date]:dayLog};
-      save({ food_log:next });
-      return next;
-    });
-  }
-  // submitDay: locks the day and saves final totals
-  function submitDay(date, dayLog) {
-    setFoodLog(prev => {
-      const next = {...prev, [date]:{ ...dayLog, locked:true }};
-      save({ food_log:next });
-      return next;
-    });
-  }
-  function addToFoodDatabase(food) {
-    setFoodDatabase(prev => {
-      const next = [...prev, food];
-      save({ food_database:next });
-      return next;
-    });
+  // ── Meal plan ──────────────────────────────────────────────
+  function updateMealPlan(newPlan) {
+    setMealPlan(newPlan);
+    save({ meal_plan: { week: wk, data: newPlan } });
   }
 
-  // ── Meal prep ──────────────────────────────────────────────
-  function updateMealPrep(patch) {
-    setMealPrep(prev => {
-      const next = {...prev,...patch};
-      save({ meal_prep:next });
-      return next;
-    });
-  }
+  // ── Par stock ──────────────────────────────────────────────
   function updateParStock(newStock) {
     setParStock(newStock);
-    save({ par_stock:newStock });
+    save({ par_stock: newStock });
   }
 
-  const allErrands       = [...DEFAULT_ERRANDS,...customErrands];
+  const allErrands       = [...DEFAULT_ERRANDS, ...customErrands];
   const errandsDoneCount = allErrands.filter(e => errandsDone[e.id]).length;
-  const errandsPct       = allErrands.length ? Math.round((errandsDoneCount/allErrands.length)*100) : 0;
+  const errandsPct       = allErrands.length ? Math.round((errandsDoneCount / allErrands.length) * 100) : 0;
 
-  // Block render until Supabase has loaded — prevents race condition overwrite
-  if (loading || foodLog === null) return (
+  // Block render until Supabase has loaded
+  if (loading || mealPlan === null) return (
     <div style={{ minHeight:"100vh", background:"#0d0d10", display:"flex",
       alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
       <div style={{ fontSize:28 }}>📋</div>
@@ -235,12 +206,12 @@ export default function App() {
   );
 
   const TABS = [
-    { id:"days",    label:"Daily"   },
-    { id:"errands", label:"To-Dos"  },
-    { id:"weight",  label:"Weight"  },
-    { id:"workout", label:"Lift"    },
-    { id:"food",    label:"Food"    },
-    { id:"prep",    label:"Prep"    },
+    { id:"days",    label:"Daily"  },
+    { id:"errands", label:"To-Dos" },
+    { id:"weight",  label:"Weight" },
+    { id:"workout", label:"Lift"   },
+    { id:"food",    label:"Food"   },
+    { id:"par",     label:"Par"    },
   ];
 
   return (
@@ -297,8 +268,8 @@ export default function App() {
 
         <div style={{ display:"flex", gap:5, overflowX:"auto", paddingBottom:2 }}>
           {TABS.map(({ id, label }) => {
-            const dot = id==="errands"&&errandsPct>0&&errandsPct<100?"#f9a8d4"
-                      : id==="errands"&&errandsPct===100?"#4ade80":null;
+            const dot = id==="errands" && errandsPct>0 && errandsPct<100 ? "#f9a8d4"
+                      : id==="errands" && errandsPct===100 ? "#4ade80" : null;
             return (
               <button key={id} onClick={() => setView(id)} style={{
                 flexShrink:0, padding:"8px 14px", borderRadius:99, border:"none",
@@ -334,17 +305,18 @@ export default function App() {
         )}
         {view==="food" && (
           <FoodTab
-            foodLog={foodLog}
-            onUpdateLog={updateFoodLog}
-            onSubmitDay={submitDay}
-            foodDatabase={foodDatabase}
-            onAddToDatabase={addToFoodDatabase}
+            mealPlan={mealPlan}
+            onUpdateMealPlan={updateMealPlan}
+            parStock={parStock}
             saving={saving}
             saveError={saveError}
           />
         )}
-        {view==="prep" && (
-          <MealPrepTab mealPrep={mealPrep} onUpdateMealPrep={updateMealPrep} parStock={parStock}/>
+        {view==="par" && (
+          <ParTab
+            parStock={parStock}
+            onUpdateParStock={updateParStock}
+          />
         )}
       </div>
     </div>
