@@ -7,6 +7,12 @@ export const OFF_DAYS   = new Set(["TUE","WED","THU","SUN"]);
 export const WEIGH_DAYS = new Set(["MON","WED","SAT"]);
 export const WORKOUT_DAY_KEYS = ["TUE","THU","SUN"];
 
+// Shopping days — WED covers Wed/Thu/Fri/Sat + household par
+//                 SUN covers Sun/Mon/Tue
+export const SHOP_DAYS = ["WED","SUN"];
+export const WED_SHOP_DAYS = new Set(["WED","THU","FRI","SAT"]);
+export const SUN_SHOP_DAYS = new Set(["SUN","MON","TUE"]);
+
 // ── Category palette ──────────────────────────────────────
 export const CAT = {
   morning: { label:"Morning Routine",    color:"#fde68a", bg:"rgba(253,230,138,0.07)" },
@@ -91,16 +97,16 @@ export const WORKOUTS = {
     title:"Legs + core — quads, hamstrings, glutes", day:"SUN", duration:"~30 min", rest:"90 sec",
     note:"Straight sets — same weight every set. Legs are your biggest muscle group — biggest calorie burn of the week.",
     exercises:[
-      { id:"sun_e1", name:"Goblet squat",     tip:"Hold one heavy DB at chest · full depth · 3 sets × 15" },
+      { id:"sun_e1", name:"Goblet squat",          tip:"Hold one heavy DB at chest · full depth · 3 sets × 15" },
       { id:"sun_e2", name:"Dumbbell good morning", tip:"DB at chest · push hips back · feel stretch in hamstrings · 3 sets × 12–15" },
-      { id:"sun_e3", name:"Dumbbell step-up",  tip:"Use bench · drive through heel · 3 sets × 12 each" },
-      { id:"sun_e4", name:"Sumo squat",        tip:"Wide stance · one DB between legs · 3 sets × 15" },
-      { id:"sun_e5", name:"Plank",             tip:"Elbows on floor · neutral spine · 3 sets × 30 sec" },
+      { id:"sun_e3", name:"Dumbbell step-up",      tip:"Use bench · drive through heel · 3 sets × 12 each" },
+      { id:"sun_e4", name:"Sumo squat",            tip:"Wide stance · one DB between legs · 3 sets × 15" },
+      { id:"sun_e5", name:"Plank",                 tip:"Elbows on floor · neutral spine · 3 sets × 30 sec" },
     ],
   },
 };
 
-// ── Cleaning sessions — expandable modal per room ─────────
+// ── Cleaning sessions ─────────────────────────────────────
 export const CLEANING_SESSIONS = {
   TUE: {
     id:"clean_tue", title:"Kitchen & Dining Room", icon:"🍳", duration:"~20 min",
@@ -149,7 +155,6 @@ export const HEALTH_ALWAYS = [
 export const CARDIO_ITEM = { id:"d4", category:"health", label:"10,000 steps (Oura ring)", icon:"🚶" };
 export const WORK_ITEM   = { id:"w1", category:"work",   label:"Log & track tips for today", icon:"💰" };
 
-// ── Kiki — every day ──────────────────────────────────────
 export const KIKI_ALWAYS = [
   { id:"k1", category:"kiki", label:"Morning feeding — dry food",  icon:"🐱" },
   { id:"k2", category:"kiki", label:"Evening feeding — dry food",  icon:"🐱" },
@@ -211,164 +216,461 @@ export const DEFAULT_ERRANDS = [
   { id:"e10", label:"Reply to any outstanding messages",     icon:"💬" },
 ];
 
-// ── Pre-loaded food database ──────────────────────────────
-export const DEFAULT_FOODS = [
-  // ── Staples ───────────────────────────────────────────────
-  { id:"f1",  name:"Gold Standard Protein Shake", calories:150, protein:24, emoji:"🥤" },
-  { id:"f2",  name:"Greek Yogurt with Granola",   calories:300, protein:18, emoji:"🫙" },
-  { id:"f3",  name:"Hard Boiled Eggs (2)",        calories:140, protein:12, emoji:"🥚" },
-  { id:"f4",  name:"Banana + Peanut Butter",      calories:250, protein:7,  emoji:"🍌" },
-  { id:"f5",  name:"Overnight Oats",              calories:350, protein:15, emoji:"🥣" },
-  { id:"f6",  name:"Granola with Almond Milk",    calories:280, protein:8,  emoji:"🥣" },
-  { id:"f7",  name:"Chicken Breast (6oz)",        calories:185, protein:35, emoji:"🍗" },
-  { id:"f8",  name:"88/12 Ground Beef (6oz)",     calories:320, protein:32, emoji:"🥩" },
-  { id:"f9",  name:"White Rice (1 cup cooked)",   calories:205, protein:4,  emoji:"🍚" },
-  { id:"f10", name:"Frozen Broccoli (1 cup)",     calories:55,  protein:4,  emoji:"🥦" },
-  { id:"f11", name:"Frozen Green Beans (1 cup)",  calories:35,  protein:2,  emoji:"🫘" },
-  { id:"f12", name:"Cauliflower Rice (1 cup)",    calories:25,  protein:2,  emoji:"🍚" },
-  { id:"f13", name:"Sriracha (1 tbsp)",           calories:10,  protein:0,  emoji:"🌶️" },
-  { id:"f14", name:"Edamame (1 cup)",             calories:190, protein:17, emoji:"🫘" },
-  { id:"f15", name:"Protein Bar",                 calories:200, protein:20, emoji:"🍫" },
-  // ── Winking Lizard — Mains ────────────────────────────────
-  { id:"wl1", name:"Winking Lizard — Cajun Chicken Spinach Salad", calories:780, protein:87, emoji:"🥗" },
-  { id:"wl2", name:"Winking Lizard — Cajun Chicken Sandwich",      calories:521, protein:58, emoji:"🥪" },
-  { id:"wl3", name:"Winking Lizard — Cheddar Club",                calories:589, protein:59, emoji:"🥪" },
-  { id:"wl4", name:"Winking Lizard — Cajun Chicken Wrap",          calories:743, protein:62, emoji:"🌯" },
-  { id:"wl5", name:"Winking Lizard — Buffalo Chicken Wrap",        calories:694, protein:60, emoji:"🌯" },
-  { id:"wl6", name:"Winking Lizard — Plain Traditional Wings (5)", calories:350, protein:38, emoji:"🍗" },
-  { id:"wl7", name:"Winking Lizard — Chicken Caesar Salad",        calories:300, protein:45, emoji:"🥗" },
-  // ── Winking Lizard — Sides ────────────────────────────────
-  { id:"wl8",  name:"Winking Lizard — Steamed Broccoli",   calories:30,  protein:2,  emoji:"🥦" },
-  { id:"wl9",  name:"Winking Lizard — Long Grain Rice",    calories:300, protein:8,  emoji:"🍚" },
-  { id:"wl10", name:"Winking Lizard — Steak Fries",        calories:366, protein:7,  emoji:"🍟" },
-  { id:"wl11", name:"Winking Lizard — Coleslaw (6oz)",     calories:278, protein:2,  emoji:"🥗" },
-  { id:"wl12", name:"Winking Lizard — Mac & Cheese",       calories:439, protein:14, emoji:"🧀" },
-  { id:"wl13", name:"Winking Lizard — Baked Beans",        calories:376, protein:10, emoji:"🫘" },
-  { id:"wl14", name:"Winking Lizard — Apple Sauce (6oz)",  calories:135, protein:0,  emoji:"🍎" },
-  // ── Winking Lizard — Dressings ───────────────────────────
-  { id:"wl15", name:"Winking Lizard — Raspberry Vinaigrette (3oz)",    calories:102, protein:0, emoji:"🫙" },
-  { id:"wl16", name:"Winking Lizard — Basil Balsamic Vinaigrette (3oz)", calories:150, protein:0, emoji:"🫙" },
-  { id:"wl17", name:"Winking Lizard — Hot Bacon Dressing (3oz)",       calories:240, protein:0, emoji:"🫙" },
-  { id:"wl18", name:"Winking Lizard — House Ranch (3oz)",              calories:390, protein:0, emoji:"🫙" },
-  { id:"wl19", name:"Winking Lizard — Caesar Dressing (1.5oz)",        calories:217, protein:2, emoji:"🫙" },
-  { id:"wl20", name:"Winking Lizard — 1000 Island (3oz)",              calories:330, protein:0, emoji:"🫙" },
-  // ── Winking Lizard — Kids Menu ───────────────────────────
-  { id:"wlk1",  name:"Winking Lizard — Cheeseburger Basket",           calories:949, protein:49, emoji:"🍔" },
-  { id:"wlk2",  name:"Winking Lizard — Hamburger Basket",              calories:869, protein:45, emoji:"🍔" },
-  { id:"wlk3",  name:"Winking Lizard — Grilled Cheese",                calories:406, protein:16, emoji:"🧀" },
-  { id:"wlk4",  name:"Winking Lizard — Kids Salad",                    calories:140, protein:9,  emoji:"🥗" },
-  { id:"wlk5",  name:"Winking Lizard — Lizard Lips",                   calories:360, protein:24, emoji:"🍗" },
-  { id:"wlk6",  name:"Winking Lizard — Mac & Cheese Wedges",           calories:440, protein:12, emoji:"🧀" },
-  { id:"wlk7",  name:"Winking Lizard — Mini Corn Dogs",                calories:440, protein:12, emoji:"🌭" },
-  { id:"wlk8",  name:"Winking Lizard — Nachos with Cheese",            calories:810, protein:13, emoji:"🧀" },
-  { id:"wlk9",  name:"Winking Lizard — Plain Boneless Wings (Kids)",   calories:400, protein:19, emoji:"🍗" },
-  { id:"wlk10", name:"Winking Lizard — Plain Traditional Wings (Kids)",calories:350, protein:38, emoji:"🍗" },
-  { id:"wlk11", name:"Winking Lizard — Small Cheese Pizza",            calories:800, protein:29, emoji:"🍕" },
+// ─────────────────────────────────────────────────────────────────────────────
+// ── MEAL LIBRARY ─────────────────────────────────────────────────────────────
+// Each meal has:
+//   calories, protein — per serving totals
+//   ingredients[]     — each with:
+//     name            — display name
+//     grams           — weight in grams (null for pantry staples/seasonings)
+//     unit            — "g" | "tbsp" | "tsp" | "count" (for eggs)
+//     groceryKey      — snake_case consolidation key (null = pantry staple, excluded from list)
+//     isRaw           — true for proteins listed at raw weight
+//
+// Pantry staples (sriracha, hot sauce, soy sauce, garlic, oils, all seasonings)
+// have groceryKey: null and are excluded from the shopping list entirely.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MEAL_LIBRARY = [
+
+  // ─── BREAKFASTS (5) ────────────────────────────────────────────────────────
+
+  {
+    id:"b1", category:"breakfast", emoji:"🫙",
+    name:"Greek Yogurt + Protein Shake Bowl",
+    calories:340, protein:52,
+    note:"Mix protein powder directly into yogurt for a thick, pudding-like texture.",
+    ingredients:[
+      { name:"Non-fat Greek yogurt", grams:227, unit:"g", groceryKey:"greek_yogurt" },
+      { name:"Whey protein powder",  grams:32,  unit:"g", groceryKey:"whey_protein" },
+    ],
+  },
+  {
+    id:"b2", category:"breakfast", emoji:"🥚",
+    name:"Scrambled Eggs & Turkey Scramble",
+    calories:310, protein:38,
+    note:"Cook turkey first, push to side, scramble eggs in same pan. Hot sauce on top.",
+    ingredients:[
+      { name:"Whole eggs",         grams:null, unit:"count", groceryKey:"eggs",         count:3  },
+      { name:"Ground turkey",      grams:113,  unit:"g",     groceryKey:"ground_turkey", isRaw:true },
+      { name:"Hot sauce",          grams:null, unit:"tbsp",  groceryKey:null,            measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"b3", category:"breakfast", emoji:"🌮",
+    name:"Breakfast Taco",
+    calories:380, protein:36,
+    note:"Eggs + turkey in a carb balance tortilla with salsa. Fast and filling.",
+    ingredients:[
+      { name:"Whole eggs",               grams:null, unit:"count", groceryKey:"eggs",              count:3  },
+      { name:"Ground turkey",            grams:85,   unit:"g",     groceryKey:"ground_turkey",     isRaw:true },
+      { name:"Carb balance tortillas",   grams:null, unit:"count", groceryKey:"carb_balance_tortillas", count:1 },
+      { name:"Salsa",                    grams:null, unit:"tbsp",  groceryKey:null,                measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"b4", category:"breakfast", emoji:"🥔",
+    name:"Egg & Potato Hash",
+    calories:420, protein:28,
+    note:"Air fry cubed potatoes at 400°F for 18 min until crispy. Scramble eggs in pan, combine. Hot sauce on top.",
+    ingredients:[
+      { name:"Whole eggs",     grams:null, unit:"count", groceryKey:"eggs",    count:3  },
+      { name:"Russet potato",  grams:200,  unit:"g",     groceryKey:"russet_potatoes" },
+      { name:"Bell pepper",    grams:80,   unit:"g",     groceryKey:"bell_peppers" },
+      { name:"Hot sauce",      grams:null, unit:"tbsp",  groceryKey:null,      measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"b5", category:"breakfast", emoji:"🍠",
+    name:"Sweet Potato & Egg Hash",
+    calories:390, protein:24,
+    note:"Air fry sweet potato cubes at 400°F for 20 min. Scramble eggs in pan, combine. Hot sauce finishes it.",
+    ingredients:[
+      { name:"Whole eggs",    grams:null, unit:"count", groceryKey:"eggs",          count:3  },
+      { name:"Sweet potato",  grams:200,  unit:"g",     groceryKey:"sweet_potatoes" },
+      { name:"Hot sauce",     grams:null, unit:"tbsp",  groceryKey:null,            measure:"2 tbsp" },
+    ],
+  },
+
+  // ─── MAINS (22) ────────────────────────────────────────────────────────────
+
+  {
+    id:"m1", category:"mains", emoji:"🍗",
+    name:"Sriracha Chicken Rice Bowl",
+    calories:490, protein:48,
+    note:"Bulk-cook chicken on shop day. Reheat over rice, drizzle sriracha + a little soy sauce.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"White rice (dry)",     grams:80,  unit:"g", groceryKey:"white_rice" },
+      { name:"Frozen broccoli",      grams:150, unit:"g", groceryKey:"frozen_broccoli" },
+      { name:"Sriracha",             grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+      { name:"Soy sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"1 tbsp" },
+    ],
+  },
+  {
+    id:"m2", category:"mains", emoji:"🍗",
+    name:"Spicy Chicken Rice Bowl (Work Day)",
+    calories:580, protein:50,
+    note:"Bigger carb portion for high-step work days. Same bulk chicken, more rice.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"White rice (dry)",     grams:120, unit:"g", groceryKey:"white_rice" },
+      { name:"Frozen broccoli",      grams:150, unit:"g", groceryKey:"frozen_broccoli" },
+      { name:"Sriracha",             grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m3", category:"mains", emoji:"🥗",
+    name:"Shredded Chicken Taco Salad",
+    calories:420, protein:50,
+    note:"Shred bulk-cooked chicken. Toss over romaine with salsa, hot sauce, a little shredded cheese.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Romaine lettuce",      grams:150, unit:"g", groceryKey:"romaine_lettuce" },
+      { name:"Shredded cheese",      grams:28,  unit:"g", groceryKey:"shredded_cheese" },
+      { name:"Salsa",                grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+      { name:"Hot sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m4", category:"mains", emoji:"🥦",
+    name:"Chicken & Broccoli Power Bowl",
+    calories:430, protein:52,
+    note:"Simple and clean. Chicken over rice and broccoli, sriracha + soy sauce drizzle.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"White rice (dry)",     grams:70,  unit:"g", groceryKey:"white_rice" },
+      { name:"Frozen broccoli",      grams:200, unit:"g", groceryKey:"frozen_broccoli" },
+      { name:"Sriracha",             grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+      { name:"Soy sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"1 tbsp" },
+    ],
+  },
+  {
+    id:"m5", category:"mains", emoji:"🧀",
+    name:"Spicy Chicken Quesadilla",
+    calories:500, protein:52,
+    note:"Shredded bulk chicken + shredded cheese + sriracha in a carb balance tortilla. Pan sear both sides.",
+    ingredients:[
+      { name:"Chicken breast (raw)",       grams:170, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Carb balance tortillas",     grams:null, unit:"count", groceryKey:"carb_balance_tortillas", count:2 },
+      { name:"Shredded cheese",            grams:56,  unit:"g", groceryKey:"shredded_cheese" },
+      { name:"Sriracha",                   grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m6", category:"mains", emoji:"🌮",
+    name:"Ground Turkey Taco Bowl",
+    calories:460, protein:46,
+    note:"Cook turkey day-of with taco seasoning. Over rice with salsa and hot sauce.",
+    ingredients:[
+      { name:"Ground turkey",    grams:170, unit:"g", groceryKey:"ground_turkey", isRaw:true },
+      { name:"White rice (dry)", grams:70,  unit:"g", groceryKey:"white_rice" },
+      { name:"Salsa",            grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+      { name:"Hot sauce",        grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m7", category:"mains", emoji:"🥬",
+    name:"Ground Turkey Lettuce Cups",
+    calories:330, protein:42,
+    note:"Taco-seasoned turkey in romaine cups. Light carb option — good for rest days.",
+    ingredients:[
+      { name:"Ground turkey",   grams:170, unit:"g", groceryKey:"ground_turkey", isRaw:true },
+      { name:"Romaine lettuce", grams:150, unit:"g", groceryKey:"romaine_lettuce" },
+      { name:"Salsa",           grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+      { name:"Hot sauce",       grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m8", category:"mains", emoji:"🍚",
+    name:"Ground Turkey & Rice Skillet",
+    calories:470, protein:44,
+    note:"Cook turkey in pan, add cooked rice and frozen veg, hit with chili garlic sauce.",
+    ingredients:[
+      { name:"Ground turkey",    grams:170, unit:"g", groceryKey:"ground_turkey", isRaw:true },
+      { name:"White rice (dry)", grams:80,  unit:"g", groceryKey:"white_rice" },
+      { name:"Frozen green beans",grams:150, unit:"g", groceryKey:"frozen_green_beans" },
+      { name:"Chili garlic sauce",grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m9", category:"mains", emoji:"🥩",
+    name:"Lean Ground Beef Stir Fry",
+    calories:490, protein:44,
+    note:"Brown beef, drain fat, add frozen stir fry veg, hit with soy sauce + sriracha.",
+    ingredients:[
+      { name:"88/12 ground beef",     grams:170, unit:"g", groceryKey:"ground_beef_88", isRaw:true },
+      { name:"Frozen stir fry mix",   grams:200, unit:"g", groceryKey:"frozen_stir_fry_mix" },
+      { name:"White rice (dry)",      grams:70,  unit:"g", groceryKey:"white_rice" },
+      { name:"Sriracha",              grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+      { name:"Soy sauce",             grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m10", category:"mains", emoji:"🥩",
+    name:"Ground Beef & Zucchini Skillet",
+    calories:420, protein:42,
+    note:"Brown beef, add diced zucchini to pan, season with garlic and chili flakes. Low carb option.",
+    ingredients:[
+      { name:"88/12 ground beef", grams:170, unit:"g", groceryKey:"ground_beef_88", isRaw:true },
+      { name:"Zucchini",          grams:200, unit:"g", groceryKey:"zucchini" },
+      { name:"Hot sauce",         grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m11", category:"mains", emoji:"🥬",
+    name:"Spicy Beef & Cabbage Bowl",
+    calories:430, protein:40,
+    note:"Brown beef, add shredded cabbage to pan, sriracha + soy sauce. Cooks down fast.",
+    ingredients:[
+      { name:"88/12 ground beef", grams:170, unit:"g", groceryKey:"ground_beef_88", isRaw:true },
+      { name:"Green cabbage",     grams:200, unit:"g", groceryKey:"green_cabbage" },
+      { name:"Sriracha",          grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+      { name:"Soy sauce",         grams:null, unit:"tbsp", groceryKey:null, measure:"1 tbsp" },
+    ],
+  },
+  {
+    id:"m12", category:"mains", emoji:"🫑",
+    name:"Beef Stuffed Peppers",
+    calories:460, protein:42,
+    note:"Brown beef with taco seasoning. Stuff into halved bell peppers, top with cheese, bake 20 min at 375°F.",
+    ingredients:[
+      { name:"88/12 ground beef", grams:170, unit:"g", groceryKey:"ground_beef_88", isRaw:true },
+      { name:"Bell peppers",      grams:200, unit:"g", groceryKey:"bell_peppers" },
+      { name:"Shredded cheese",   grams:28,  unit:"g", groceryKey:"shredded_cheese" },
+      { name:"Salsa",             grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+    ],
+  },
+  {
+    id:"m13", category:"mains", emoji:"🥩",
+    name:"Steak & Green Beans",
+    calories:450, protein:50,
+    note:"Pan sear steak to your preferred temp. Steam green beans. Simple — let the protein do the work.",
+    ingredients:[
+      { name:"Sirloin steak",      grams:200, unit:"g", groceryKey:"sirloin_steak", isRaw:true },
+      { name:"Frozen green beans", grams:200, unit:"g", groceryKey:"frozen_green_beans" },
+      { name:"Hot sauce",          grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m14", category:"mains", emoji:"🥩",
+    name:"Steak & Asparagus",
+    calories:440, protein:50,
+    note:"Pan sear steak. Roast asparagus at 425°F for 12 min. Season with salt and garlic.",
+    ingredients:[
+      { name:"Sirloin steak", grams:200, unit:"g", groceryKey:"sirloin_steak", isRaw:true },
+      { name:"Asparagus",     grams:200, unit:"g", groceryKey:"asparagus" },
+      { name:"Hot sauce",     grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m15", category:"mains", emoji:"🍲",
+    name:"High Protein Chicken Soup",
+    calories:380, protein:48,
+    note:"Shred bulk chicken into chicken broth with frozen veg. Simmer 10 min. Add hot sauce.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Chicken broth",        grams:480, unit:"g", groceryKey:"chicken_broth" },
+      { name:"Frozen stir fry mix",  grams:150, unit:"g", groceryKey:"frozen_stir_fry_mix" },
+      { name:"Hot sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m16", category:"mains", emoji:"🌯",
+    name:"Spicy Chicken Wrap",
+    calories:470, protein:50,
+    note:"Shred bulk chicken, add sriracha, stuff into carb balance tortilla with romaine and cheese.",
+    ingredients:[
+      { name:"Chicken breast (raw)",     grams:170, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Carb balance tortillas",   grams:null, unit:"count", groceryKey:"carb_balance_tortillas", count:1 },
+      { name:"Romaine lettuce",          grams:80,  unit:"g", groceryKey:"romaine_lettuce" },
+      { name:"Shredded cheese",          grams:28,  unit:"g", groceryKey:"shredded_cheese" },
+      { name:"Sriracha",                 grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m17", category:"mains", emoji:"🍗",
+    name:"One Pan Chicken & Rice Bake",
+    calories:520, protein:50,
+    note:"Raw chicken over dry rice + broth in a baking dish. Cover with foil, bake 375°F for 45 min. Set it and forget it.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"White rice (dry)",     grams:90,  unit:"g", groceryKey:"white_rice" },
+      { name:"Chicken broth",        grams:360, unit:"g", groceryKey:"chicken_broth" },
+      { name:"Hot sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  // ── Potato mains ──────────────────────────────────────────
+  {
+    id:"m18", category:"mains", emoji:"🥔",
+    name:"Crispy Potato & Ground Beef Hash",
+    calories:490, protein:40,
+    note:"Air fry cubed russet potatoes at 400°F for 18 min until crispy. Brown beef in pan, combine. Hot sauce on top.",
+    ingredients:[
+      { name:"88/12 ground beef", grams:170, unit:"g", groceryKey:"ground_beef_88", isRaw:true },
+      { name:"Russet potatoes",   grams:250, unit:"g", groceryKey:"russet_potatoes" },
+      { name:"Hot sauce",         grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m19", category:"mains", emoji:"🍠",
+    name:"Spicy Chicken & Sweet Potato Bowl",
+    calories:480, protein:46,
+    note:"Air fry sweet potato cubes at 400°F for 20 min. Top with bulk-cooked sriracha chicken and green onion.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Sweet potatoes",       grams:250, unit:"g", groceryKey:"sweet_potatoes" },
+      { name:"Green onion",          grams:30,  unit:"g", groceryKey:"green_onion" },
+      { name:"Sriracha",             grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m20", category:"mains", emoji:"🍠",
+    name:"Ground Turkey Sweet Potato Skillet",
+    calories:460, protein:42,
+    note:"Air fry sweet potato cubes. Cook turkey with taco seasoning in pan. Combine, top with salsa and hot sauce.",
+    ingredients:[
+      { name:"Ground turkey",  grams:170, unit:"g", groceryKey:"ground_turkey", isRaw:true },
+      { name:"Sweet potatoes", grams:250, unit:"g", groceryKey:"sweet_potatoes" },
+      { name:"Salsa",          grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+      { name:"Hot sauce",      grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m21", category:"mains", emoji:"🥩",
+    name:"Steak & Crispy Potato Bowl",
+    calories:520, protein:48,
+    note:"Air fry cubed russet potatoes at 400°F for 18 min. Pan sear steak. Combine in bowl with hot sauce.",
+    ingredients:[
+      { name:"Sirloin steak",  grams:200, unit:"g", groceryKey:"sirloin_steak", isRaw:true },
+      { name:"Russet potatoes",grams:250, unit:"g", groceryKey:"russet_potatoes" },
+      { name:"Hot sauce",      grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"m22", category:"mains", emoji:"🍳",
+    name:"Buffalo Chicken & Sweet Potato Bowl",
+    calories:470, protein:46,
+    note:"Air fry sweet potato cubes. Toss bulk-cooked chicken in hot sauce + a little butter. Combine in bowl.",
+    ingredients:[
+      { name:"Chicken breast (raw)", grams:200, unit:"g", groceryKey:"chicken_breast", isRaw:true },
+      { name:"Sweet potatoes",       grams:250, unit:"g", groceryKey:"sweet_potatoes" },
+      { name:"Hot sauce",            grams:null, unit:"tbsp", groceryKey:null, measure:"3 tbsp" },
+    ],
+  },
+
+  // ─── SNACKS (8) ────────────────────────────────────────────────────────────
+
+  {
+    id:"s1", category:"snacks", emoji:"🥚",
+    name:"Full Egg Scramble",
+    calories:215, protein:19,
+    note:"3 whole eggs, scrambled. Hot sauce and salt. Cheapest protein on earth.",
+    ingredients:[
+      { name:"Whole eggs", grams:null, unit:"count", groceryKey:"eggs", count:3 },
+      { name:"Hot sauce",  grams:null, unit:"tbsp",  groceryKey:null,   measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"s2", category:"snacks", emoji:"🦃",
+    name:"Deli Turkey & Pickles",
+    calories:100, protein:18,
+    note:"3oz deli turkey, dill pickles, mustard. Zero cook time.",
+    ingredients:[
+      { name:"Deli turkey breast", grams:85,  unit:"g", groceryKey:"deli_turkey" },
+      { name:"Dill pickles",       grams:null, unit:"tbsp", groceryKey:null, measure:"as many as you want" },
+    ],
+  },
+  {
+    id:"s3", category:"snacks", emoji:"🌯",
+    name:"Deli Wrap",
+    calories:170, protein:23,
+    note:"Carb balance tortilla, 3oz turkey, hot sauce, pickles, mustard. 2 min assembly.",
+    ingredients:[
+      { name:"Deli turkey breast",       grams:85,  unit:"g",     groceryKey:"deli_turkey" },
+      { name:"Carb balance tortillas",   grams:null, unit:"count", groceryKey:"carb_balance_tortillas", count:1 },
+      { name:"Hot sauce",                grams:null, unit:"tbsp",  groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"s4", category:"snacks", emoji:"🫙",
+    name:"Cottage Cheese Bowl",
+    calories:180, protein:25,
+    note:"1 cup non-fat cottage cheese, hot sauce, everything bagel seasoning, diced dill pickle mixed in.",
+    ingredients:[
+      { name:"Non-fat cottage cheese", grams:226, unit:"g", groceryKey:"cottage_cheese" },
+      { name:"Hot sauce",              grams:null, unit:"tbsp", groceryKey:null, measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"s5", category:"snacks", emoji:"🍳",
+    name:"Egg & Turkey Mini Scramble",
+    calories:230, protein:28,
+    note:"2 whole eggs + 2oz deli turkey chopped in. Sriracha on top. Heartier than a plain scramble.",
+    ingredients:[
+      { name:"Whole eggs",         grams:null, unit:"count", groceryKey:"eggs",       count:2 },
+      { name:"Deli turkey breast", grams:56,   unit:"g",     groceryKey:"deli_turkey" },
+      { name:"Sriracha",           grams:null, unit:"tbsp",  groceryKey:null,          measure:"1 tbsp" },
+    ],
+  },
+  {
+    id:"s6", category:"snacks", emoji:"🫙",
+    name:"Greek Yogurt Protein Bowl",
+    calories:200, protein:30,
+    note:"Plain non-fat Greek yogurt + half scoop protein stirred in. Thick and filling.",
+    ingredients:[
+      { name:"Non-fat Greek yogurt", grams:170, unit:"g", groceryKey:"greek_yogurt" },
+      { name:"Whey protein powder",  grams:16,  unit:"g", groceryKey:"whey_protein" },
+    ],
+  },
+  {
+    id:"s7", category:"snacks", emoji:"🍚",
+    name:"Rice Cake Stack",
+    calories:200, protein:20,
+    note:"3 rice cakes, 3oz deli turkey, mustard, hot sauce. Adds crunch variety.",
+    ingredients:[
+      { name:"Deli turkey breast", grams:85,  unit:"g",     groceryKey:"deli_turkey" },
+      { name:"Rice cakes",         grams:null, unit:"count", groceryKey:"rice_cakes",  count:3 },
+      { name:"Hot sauce",          grams:null, unit:"tbsp",  groceryKey:null,          measure:"2 tbsp" },
+    ],
+  },
+  {
+    id:"s8", category:"snacks", emoji:"🥤",
+    name:"Protein Shake",
+    calories:130, protein:25,
+    note:"1 scoop whey + water. Shake and go.",
+    ingredients:[
+      { name:"Whey protein powder", grams:32, unit:"g", groceryKey:"whey_protein" },
+    ],
+  },
 ];
 
-// ── Meal prep recipes ─────────────────────────────────────
-export const RECIPES = [
-  {
-    id:"r1", name:"Oven Baked Chicken Breast", emoji:"🍗",
-    prepDay:["SUN","WED"], prepMins:35, servings:4,
-    caloriesPerServing:185, proteinPerServing:35, tag:"high-protein",
-    ingredients:["4 chicken breasts","Garlic powder","Paprika","Cayenne","Olive oil","Salt"],
-    steps:[
-      "Preheat oven to 425°F",
-      "Coat chicken in olive oil, season with garlic, paprika, cayenne, salt",
-      "Bake 22–25 min until internal temp hits 165°F",
-      "Rest 5 min before slicing",
-      "Store in containers — lasts 4 days in fridge",
-    ],
-  },
-  {
-    id:"r2", name:"Sriracha Honey Ground Beef Bowl", emoji:"🥩",
-    prepDay:["SUN","WED"], prepMins:20, servings:4,
-    caloriesPerServing:380, proteinPerServing:32, tag:"high-protein",
-    ingredients:["1.5 lb 88/12 ground beef","2 tbsp sriracha","1 tbsp honey","Garlic","Soy sauce","Rice"],
-    steps:[
-      "Brown beef in pan over medium-high heat, drain excess fat",
-      "Add minced garlic, cook 1 min",
-      "Mix sriracha, honey, soy sauce — pour over beef",
-      "Simmer 2–3 min until sauce coats meat",
-      "Serve over rice with frozen veg on the side",
-    ],
-  },
-  {
-    id:"r3", name:"Buffalo Chicken Breast", emoji:"🌶️",
-    prepDay:["SUN","WED"], prepMins:30, servings:4,
-    caloriesPerServing:200, proteinPerServing:35, tag:"high-protein",
-    ingredients:["4 chicken breasts","Frank's hot sauce","Butter (1 tbsp)","Garlic powder","Salt"],
-    steps:[
-      "Bake chicken at 425°F for 22 min",
-      "Mix Frank's with melted butter",
-      "Toss cooked chicken in buffalo sauce",
-      "Slice and store — great cold or reheated",
-    ],
-  },
-  {
-    id:"r4", name:"Chili Garlic Chicken Breast", emoji:"🍗",
-    prepDay:["SUN","WED"], prepMins:30, servings:4,
-    caloriesPerServing:190, proteinPerServing:35, tag:"high-protein",
-    ingredients:["4 chicken breasts","Chili garlic sauce (2 tbsp)","Soy sauce","Garlic","Ginger","Sesame oil"],
-    steps:[
-      "Marinate chicken in chili garlic sauce, soy, garlic, ginger for 15 min",
-      "Bake at 425°F for 22–25 min",
-      "Finish with a drizzle of sesame oil",
-      "Slice and store",
-    ],
-  },
-  {
-    id:"r5", name:"Taco Style 88/12 Ground Beef", emoji:"🌮",
-    prepDay:["SUN","WED"], prepMins:15, servings:4,
-    caloriesPerServing:300, proteinPerServing:30, tag:"high-protein",
-    ingredients:["1.5 lb 88/12 ground beef","Taco seasoning","Garlic","Onion powder","Cumin","Chili powder"],
-    steps:[
-      "Brown beef over medium-high heat",
-      "Drain excess fat",
-      "Add taco seasoning + a splash of water",
-      "Simmer 2 min — done",
-      "Use in bowls, wraps, or on rice",
-    ],
-  },
-  {
-    id:"r6", name:"Hard Boiled Eggs (Batch)", emoji:"🥚",
-    prepDay:["SUN","WED"], prepMins:15, servings:6,
-    caloriesPerServing:140, proteinPerServing:12, tag:"snack",
-    ingredients:["12 eggs","Water","Ice"],
-    steps:[
-      "Place eggs in pot, cover with cold water",
-      "Bring to boil, then cover and remove from heat",
-      "Let sit 10–12 min",
-      "Transfer to ice bath for 5 min",
-      "Peel and store in fridge up to 1 week",
-    ],
-  },
-  {
-    id:"r7", name:"Ground Turkey Taco Meat", emoji:"🦃",
-    prepDay:["SUN"], prepMins:15, servings:4,
-    caloriesPerServing:220, proteinPerServing:28, tag:"high-protein",
-    ingredients:["1.5 lb ground turkey","Cumin","Chili powder","Garlic","Chili flakes","Salt"],
-    steps:[
-      "Brown turkey over medium heat — leaner so it dries faster than beef",
-      "Add garlic, cumin, chili powder, chili flakes",
-      "Season well — turkey needs more seasoning than beef",
-      "Cook until no pink remains",
-      "Store in containers — lasts 4 days",
-    ],
-  },
-  {
-    id:"r8", name:"Spicy Chicken Stir Fry", emoji:"🥘",
-    prepDay:["SUN","WED"], prepMins:20, servings:3,
-    caloriesPerServing:280, proteinPerServing:32, tag:"high-protein",
-    ingredients:["3 chicken breasts sliced","Frozen stir fry veg mix","Chili garlic sauce","Soy sauce","Sesame oil","Garlic"],
-    steps:[
-      "Slice chicken thin, cook in hot pan with oil",
-      "Add garlic, cook 1 min",
-      "Add frozen veg straight from bag — no thawing needed",
-      "Stir fry 4–5 min",
-      "Add chili garlic sauce + soy sauce, toss",
-      "Finish with sesame oil",
-    ],
-  },
-];
+// ── Grocery key display names & units ─────────────────────
+// Used by the Shop tab to render consolidated items cleanly
+export const GROCERY_DISPLAY = {
+  chicken_breast:           { name:"Chicken breast (raw)",        unit:"g",  showLbs:true  },
+  ground_turkey:            { name:"Ground turkey (raw)",         unit:"g",  showLbs:true  },
+  ground_beef_88:           { name:"88/12 ground beef (raw)",     unit:"g",  showLbs:true  },
+  sirloin_steak:            { name:"Sirloin steak (raw)",         unit:"g",  showLbs:true  },
+  deli_turkey:              { name:"Deli turkey breast",          unit:"g",  showLbs:false },
+  eggs:                     { name:"Eggs",                        unit:"count", showLbs:false },
+  white_rice:               { name:"White rice (dry)",            unit:"g",  showLbs:false },
+  frozen_broccoli:          { name:"Frozen broccoli",             unit:"g",  showLbs:false },
+  frozen_green_beans:       { name:"Frozen green beans",          unit:"g",  showLbs:false },
+  frozen_stir_fry_mix:      { name:"Frozen stir fry mix",         unit:"g",  showLbs:false },
+  romaine_lettuce:          { name:"Romaine lettuce",             unit:"g",  showLbs:false },
+  shredded_cheese:          { name:"Shredded cheese",             unit:"g",  showLbs:false },
+  green_cabbage:            { name:"Green cabbage",               unit:"g",  showLbs:false },
+  zucchini:                 { name:"Zucchini",                    unit:"g",  showLbs:false },
+  bell_peppers:             { name:"Bell peppers",                unit:"g",  showLbs:false },
+  asparagus:                { name:"Asparagus",                   unit:"g",  showLbs:false },
+  russet_potatoes:          { name:"Russet potatoes",             unit:"g",  showLbs:false },
+  sweet_potatoes:           { name:"Sweet potatoes",              unit:"g",  showLbs:false },
+  green_onion:              { name:"Green onion",                 unit:"g",  showLbs:false },
+  chicken_broth:            { name:"Chicken broth",               unit:"g",  showLbs:false },
+  greek_yogurt:             { name:"Non-fat Greek yogurt",        unit:"g",  showLbs:false },
+  cottage_cheese:           { name:"Non-fat cottage cheese",      unit:"g",  showLbs:false },
+  whey_protein:             { name:"Whey protein powder",         unit:"g",  showLbs:false },
+  carb_balance_tortillas:   { name:"Mission Carb Balance tortillas", unit:"count", showLbs:false },
+  rice_cakes:               { name:"Rice cakes",                  unit:"count", showLbs:false },
+};
