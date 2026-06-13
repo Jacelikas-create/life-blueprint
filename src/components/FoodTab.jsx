@@ -396,13 +396,6 @@ function ShopTab({ mealPlan, parStock }) {
     ? "Wednesday — Wed/Thu/Fri/Sat meals"
     : "Sunday — Sun/Mon/Tue meals";
 
-  // Par items below par — only show on Wednesday
-  const { PAR_CATEGORIES } = require ? null : null; // handled via props
-  const belowPar = shopDay === "WED" && parStock ? (() => {
-    // We import PAR_CATEGORIES at file level
-    return [];
-  })() : [];
-
   function toggleCheck(key) {
     setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }));
   }
