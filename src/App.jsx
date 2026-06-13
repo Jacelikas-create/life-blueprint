@@ -290,7 +290,7 @@ export default function App() {
         {view==="days" && (
           <DayView checked={checked} toggle={toggle} todayCode={todayCode}
             waterGlasses={waterGlasses} onWaterTap={onWaterTap} onWaterUndo={onWaterUndo}
-            parStock={parStock} onUpdatePar={updateParStock}/>
+            onNavigate={setView}/>
         )}
         {view==="errands" && (
           <ErrandsPanel errands={allErrands} errandsDone={errandsDone}
