@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { MEAL_LIBRARY, GROCERY_DISPLAY, CALORIE_TARGET, PROTEIN_TARGET, WED_SHOP_DAYS, SUN_SHOP_DAYS } from "../constants";
+import { MEAL_LIBRARY, GROCERY_DISPLAY, CALORIE_TARGET, PROTEIN_TARGET, WED_SHOP_DAYS, SUN_SHOP_DAYS, PAR_CATEGORIES } from "../constants";
 
 const DAYS_ORDER = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
 const DAY_LABELS = { MON:"Monday",TUE:"Tuesday",WED:"Wednesday",THU:"Thursday",FRI:"Friday",SAT:"Saturday",SUN:"Sunday" };
@@ -507,25 +507,10 @@ function ShopTab({ mealPlan, parStock }) {
 
 // ── Household section (Wednesday shop only) ───────────────
 function HouseholdSection({ parStock }) {
-  const { PAR_CATEGORIES } = useMemo(() => {
-    try { return require("../constants"); } catch { return { PAR_CATEGORIES:[] }; }
-  }, []);
-  return <HouseholdSectionInner parStock={parStock}/>;
-}
-
-function HouseholdSectionInner({ parStock }) {
-  // Import inline to avoid circular issues
-  const [cats, setCats] = useState(null);
-  if (!cats) {
-    import("../constants").then(m => setCats(m.PAR_CATEGORIES));
-    return null;
-  }
-
-  const belowPar = cats.flatMap(cat =>
-    cat.items.filter(item => {
-      const stock = parseInt(parStock?.[item.id] ?? item.par, 10);
-      return stock < item.par;
-    }).map(item => ({ ...item, catLabel:cat.label, stock:parseInt(parStock?.[item.id] ?? item.par, 10) }))
+  const belowPar = PAR_CATEGORIES.flatMap(cat =>
+    cat.items
+      .filter(item => parseInt(parStock?.[item.id] ?? item.par, 10) < item.par)
+      .map(item => ({ ...item, catLabel:cat.label, stock:parseInt(parStock?.[item.id] ?? item.par, 10) }))
   );
 
   if (belowPar.length === 0) {
