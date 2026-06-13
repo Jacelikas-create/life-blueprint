@@ -1,411 +1,609 @@
 import { useState, useMemo } from "react";
-import { CALORIE_TARGET, PROTEIN_TARGET, DEFAULT_FOODS } from "../constants";
-import { formatDateLong } from "../utils";
+import { MEAL_LIBRARY, GROCERY_DISPLAY, CALORIE_TARGET, PROTEIN_TARGET, WED_SHOP_DAYS, SUN_SHOP_DAYS } from "../constants";
 
-const MEAL_SECTIONS = [
-  { id:"pre",   label:"Pre-Meal & Breakfast", icon:"🌅", color:"#fde68a" },
-  { id:"main",  label:"Main Meal",            icon:"🍽️", color:"#4ade80" },
-  { id:"snack", label:"Extra Snacks",         icon:"🍎", color:"#fb923c" },
-];
+const DAYS_ORDER = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const DAY_LABELS = { MON:"Monday",TUE:"Tuesday",WED:"Wednesday",THU:"Thursday",FRI:"Friday",SAT:"Saturday",SUN:"Sunday" };
+const DAY_SHORT  = { MON:"Mon",TUE:"Tue",WED:"Wed",THU:"Thu",FRI:"Fri",SAT:"Sat",SUN:"Sun" };
 
-function MacroBar({ label, current, target, color }) {
-  const pct  = Math.min(Math.round((current / target) * 100), 100);
+const CAT_META = {
+  breakfast: { label:"Breakfast", color:"#fde68a", emoji:"🌅" },
+  mains:     { label:"Mains",     color:"#4ade80", emoji:"🍽️" },
+  snacks:    { label:"Snacks",    color:"#fb923c", emoji:"🍎" },
+};
+
+// ── helpers ───────────────────────────────────────────────
+function gToLbs(g) { return (g / 453.592).toFixed(2); }
+
+function buildGroceryList(mealPlan, daySet) {
+  const totals = {}; // groceryKey → { grams|count, isCount }
+  DAYS_ORDER.filter(d => daySet.has(d)).forEach(day => {
+    const entries = mealPlan[day] || [];
+    entries.forEach(entry => {
+      const meal = MEAL_LIBRARY.find(m => m.id === entry.mealId);
+      if (!meal) return;
+      meal.ingredients.forEach(ing => {
+        if (!ing.groceryKey) return; // pantry staple — skip
+        if (!totals[ing.groceryKey]) totals[ing.groceryKey] = { total: 0, isCount: ing.unit === "count" };
+        if (ing.unit === "count") {
+          totals[ing.groceryKey].total += (ing.count || 1) * (entry.servings || 1);
+        } else {
+          totals[ing.groceryKey].total += (ing.grams || 0) * (entry.servings || 1);
+        }
+      });
+    });
+  });
+  return totals;
+}
+
+// ── sub-components ────────────────────────────────────────
+
+function MacroBar({ current, target, color }) {
+  const pct  = Math.min((current / target) * 100, 100);
   const over = current > target;
   return (
-    <div style={{ flex:1 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-        <span style={{ fontSize:10, color:"#666" }}>{label}</span>
-        <span style={{ fontSize:10, fontWeight:600, color:over?"#fb923c":color }}>
-          {Math.round(current)}<span style={{ color:"#444" }}>/{target}</span>
-        </span>
-      </div>
-      <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${pct}%`, background:over?"#fb923c":color,
-          borderRadius:99, transition:"width 0.3s ease" }}/>
+    <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden", marginTop:4 }}>
+      <div style={{ height:"100%", width:`${pct}%`, background:over?"#fb923c":color, borderRadius:99, transition:"width 0.3s" }}/>
+    </div>
+  );
+}
+
+function DayMacroChip({ mealPlan, day }) {
+  const entries = mealPlan[day] || [];
+  const cals = entries.reduce((s, e) => {
+    const m = MEAL_LIBRARY.find(x => x.id === e.mealId);
+    return s + (m ? m.calories * (e.servings || 1) : 0);
+  }, 0);
+  const pro = entries.reduce((s, e) => {
+    const m = MEAL_LIBRARY.find(x => x.id === e.mealId);
+    return s + (m ? m.protein * (e.servings || 1) : 0);
+  }, 0);
+  const calColor = cals > CALORIE_TARGET ? "#fb923c" : cals > CALORIE_TARGET * 0.85 ? "#fde68a" : cals > 0 ? "#4ade80" : "#444";
+  return { cals, pro, calColor };
+}
+
+// ── AddMealSheet ──────────────────────────────────────────
+function AddMealSheet({ onAdd, onClose }) {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const cats = ["all","breakfast","mains","snacks"];
+  const filtered = MEAL_LIBRARY.filter(m => {
+    const matchCat  = filter === "all" || m.category === filter;
+    const matchSearch = search.length === 0 || m.name.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)", zIndex:200,
+      display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background:"#18181d",
+        borderRadius:"20px 20px 0 0", border:"1px solid rgba(255,255,255,0.08)",
+        width:"100%", maxWidth:540, maxHeight:"82vh", display:"flex", flexDirection:"column" }}>
+
+        {/* Header */}
+        <div style={{ padding:"20px 20px 12px", borderBottom:"1px solid rgba(255,255,255,0.06)", flexShrink:0 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:16, fontWeight:600 }}>Add a meal</div>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)", border:"none",
+              color:"#888", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>✕</button>
+          </div>
+
+          {/* Search */}
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search meals…"
+            style={{ width:"100%", background:"#0d0d10", border:"1px solid rgba(255,255,255,0.1)",
+              borderRadius:10, padding:"9px 12px", color:"#ece9e3", fontSize:13,
+              fontFamily:"'DM Sans',sans-serif", outline:"none", marginBottom:10, boxSizing:"border-box" }}/>
+
+          {/* Filter pills */}
+          <div style={{ display:"flex", gap:6 }}>
+            {cats.map(c => (
+              <button key={c} onClick={() => setFilter(c)} style={{
+                padding:"6px 12px", borderRadius:99, border:"none", cursor:"pointer",
+                background:filter===c ? (c==="all"?"#ece9e3":CAT_META[c]?.color||"#ece9e3") : "rgba(255,255,255,0.07)",
+                color:filter===c?"#0d0d10":"#666",
+                fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:500 }}>
+                {c === "all" ? "All" : CAT_META[c].label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Meal list */}
+        <div style={{ overflowY:"auto", flex:1 }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding:"30px 20px", textAlign:"center", color:"#444", fontSize:13 }}>No meals found</div>
+          ) : (
+            filtered.map((meal, i) => (
+              <div key={meal.id} onClick={() => { onAdd(meal.id); onClose(); }}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 20px",
+                  borderBottom:i < filtered.length-1 ? "1px solid rgba(255,255,255,0.045)" : "none",
+                  cursor:"pointer" }} className="row">
+                <span style={{ fontSize:22, flexShrink:0 }}>{meal.emoji}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:"#dbd7cf", marginBottom:2 }}>{meal.name}</div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ fontSize:10, color:CAT_META[meal.category]?.color||"#888",
+                      background:`${CAT_META[meal.category]?.color||"#888"}18`,
+                      padding:"1px 6px", borderRadius:4, fontWeight:600 }}>
+                      {CAT_META[meal.category]?.label}
+                    </span>
+                    <span style={{ fontSize:10, color:"#555" }}>{meal.calories} cal · {meal.protein}g protein</span>
+                  </div>
+                </div>
+                <span style={{ color:"#333", fontSize:18 }}>+</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function FoodEntry({ entry, onRemove, locked }) {
+// ── MealEntry (in day view) ───────────────────────────────
+function MealEntry({ entry, onRemove }) {
+  const meal = MEAL_LIBRARY.find(m => m.id === entry.mealId);
+  if (!meal) return null;
+  const cat = CAT_META[meal.category];
   return (
     <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px",
       borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-      <span style={{ fontSize:14, flexShrink:0 }}>{entry.emoji||"🍴"}</span>
+      <span style={{ fontSize:16, flexShrink:0 }}>{meal.emoji}</span>
       <div style={{ flex:1 }}>
-        <div style={{ fontSize:13, color:locked?"#666":"#dbd7cf" }}>{entry.name}</div>
-        <div style={{ fontSize:10, color:"#555", marginTop:1 }}>
-          {entry.calories} cal · {entry.protein||0}g protein
+        <div style={{ fontSize:13, color:"#dbd7cf" }}>{meal.name}</div>
+        <div style={{ display:"flex", gap:8, marginTop:2 }}>
+          <span style={{ fontSize:10, color:cat.color, background:`${cat.color}18`,
+            padding:"1px 6px", borderRadius:4, fontWeight:600 }}>{cat.label}</span>
+          <span style={{ fontSize:10, color:"#555" }}>{meal.calories} cal · {meal.protein}g pro</span>
         </div>
       </div>
-      {!locked && (
-        <button onClick={onRemove} style={{ background:"none", border:"none", color:"#444",
-          cursor:"pointer", fontSize:16, padding:"0 2px" }}>×</button>
-      )}
+      <button onClick={onRemove} style={{ background:"none", border:"none", color:"#444",
+        cursor:"pointer", fontSize:18, padding:"0 2px", flexShrink:0 }}>×</button>
     </div>
   );
 }
 
-function AddFoodModal({ section, onAdd, onClose, foodDatabase }) {
-  const [query,    setQuery]    = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein,  setProtein]  = useState("");
-  const [name,     setName]     = useState("");
-  const [emoji,    setEmoji]    = useState("");
-  const [mode,     setMode]     = useState("search");
+// ── ASSIGN TAB ────────────────────────────────────────────
+function AssignTab({ mealPlan, onUpdate }) {
+  const [activeDay,  setActiveDay]  = useState("MON");
+  const [addingTo,   setAddingTo]   = useState(null);
 
-  const allFoods = useMemo(() => {
-    const ids = new Set(DEFAULT_FOODS.map(f => f.id));
-    return [...DEFAULT_FOODS, ...foodDatabase.filter(f => !ids.has(f.id))];
-  }, [foodDatabase]);
+  const entries = mealPlan[activeDay] || [];
+  const { cals, pro, calColor } = DayMacroChip({ mealPlan, day:activeDay });
 
-  const filtered = query.length > 0
-    ? allFoods.filter(f => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 6)
-    : [];
-
-  function selectFood(food) { onAdd({...food, id:undefined}); onClose(); }
-
-  function handleManualAdd() {
-    if (!name || !calories) return;
-    onAdd({ name, calories:parseFloat(calories), protein:parseFloat(protein)||0, emoji:emoji||"🍴" });
-    onClose();
+  function addMeal(day, mealId) {
+    const current = mealPlan[day] || [];
+    onUpdate({ ...mealPlan, [day]: [...current, { mealId, id:`${day}_${Date.now()}`, servings:1 }] });
   }
 
-  return (
-    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
-      zIndex:100, display:"flex", alignItems:"flex-end", justifyContent:"center" }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:"#18181d",
-        borderRadius:"20px 20px 0 0", border:"1px solid rgba(255,255,255,0.08)",
-        width:"100%", maxWidth:540, maxHeight:"75vh", overflowY:"auto", padding:"24px 20px 40px" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:16, fontWeight:600 }}>
-            Add to {MEAL_SECTIONS.find(s=>s.id===section)?.label}
-          </div>
-          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.07)", border:"none",
-            color:"#888", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>✕</button>
-        </div>
-        <div style={{ display:"flex", gap:6, marginBottom:16 }}>
-          {[["search","Search / Quick-add"],["manual","Manual entry"]].map(([m,l])=>(
-            <button key={m} onClick={()=>setMode(m)} style={{ flex:1, padding:"8px", borderRadius:8,
-              border:"none", cursor:"pointer",
-              background:mode===m?"#ece9e3":"rgba(255,255,255,0.06)",
-              color:mode===m?"#0d0d10":"#777", fontFamily:"'DM Sans',sans-serif", fontSize:12 }}>{l}</button>
-          ))}
-        </div>
-        {mode==="search" ? (
-          <>
-            <input value={query} onChange={e=>setQuery(e.target.value)} autoFocus
-              placeholder="Search foods…"
-              style={{ width:"100%", background:"#0d0d10", border:"1px solid rgba(255,255,255,0.1)",
-                borderRadius:10, padding:"10px 14px", color:"#ece9e3", fontSize:14,
-                fontFamily:"'DM Sans',sans-serif", outline:"none", marginBottom:12 }}/>
-            {filtered.length>0 ? (
-              <div style={{ background:"#0d0d10", borderRadius:10, overflow:"hidden" }}>
-                {filtered.map((food,i)=>(
-                  <div key={food.id||i} onClick={()=>selectFood(food)}
-                    style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
-                      borderBottom:i<filtered.length-1?"1px solid rgba(255,255,255,0.05)":"none",
-                      cursor:"pointer" }} className="row">
-                    <span style={{ fontSize:18 }}>{food.emoji||"🍴"}</span>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, color:"#dbd7cf" }}>{food.name}</div>
-                      <div style={{ fontSize:10, color:"#555" }}>{food.calories} cal · {food.protein||0}g protein</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : query.length>0 ? (
-              <div style={{ textAlign:"center", color:"#555", fontSize:13, padding:"20px 0" }}>
-                No results — try manual entry
-              </div>
-            ) : (
-              <div>
-                <div style={{ marginBottom:8, fontWeight:600, color:"#666", fontSize:12 }}>Quick adds:</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                  {DEFAULT_FOODS.slice(0,8).map(food=>(
-                    <button key={food.id} onClick={()=>selectFood(food)}
-                      style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)",
-                        borderRadius:8, padding:"6px 10px", color:"#888", cursor:"pointer",
-                        fontFamily:"'DM Sans',sans-serif", fontSize:12 }}>
-                      {food.emoji} {food.name.split(" ").slice(0,3).join(" ")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {[[name,setName,"Food name","text"],[calories,setCalories,"Calories","number"],
-              [protein,setProtein,"Protein (g)","number"],[emoji,setEmoji,"Emoji (optional)","text"]]
-              .map(([val,set,ph,type],i)=>(
-              <input key={i} type={type} value={val} onChange={e=>set(e.target.value)}
-                placeholder={ph} style={{ background:"#0d0d10", border:"1px solid rgba(255,255,255,0.08)",
-                  borderRadius:10, padding:"10px 14px", color:"#ece9e3", fontSize:13,
-                  fontFamily:"'DM Sans',sans-serif", outline:"none" }}/>
-            ))}
-            <button onClick={handleManualAdd} disabled={!name||!calories}
-              style={{ padding:"12px", borderRadius:10, border:"none",
-                background:name&&calories?"#4ade80":"rgba(255,255,255,0.05)",
-                color:name&&calories?"#0d0d10":"#444",
-                fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600,
-                cursor:name&&calories?"pointer":"not-allowed" }}>
-              Add food
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Day editor ────────────────────────────────────────────
-function DayEditor({ date, dayData, isToday, onUpdate, onSubmit, onUnlock, foodDatabase, onAddToDatabase, saving, saveError }) {
-  const [addingTo, setAddingTo] = useState(null);
-  const isLocked  = !!dayData?.locked;
-  const data      = dayData || { pre:[], main:[], snack:[], locked:false };
-
-  const allEntries    = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
-  const totalCalories = allEntries.reduce((s,f)=>s+f.calories,0);
-  const totalProtein  = allEntries.reduce((s,f)=>s+(f.protein||0),0);
-  const remaining     = CALORIE_TARGET - totalCalories;
-  const calorieColor  = totalCalories>CALORIE_TARGET?"#fb923c"
-                      : totalCalories>CALORIE_TARGET*0.9?"#fde68a":"#4ade80";
-
-  function addFood(section, food) {
-    if (isLocked) return;
-    const updated = { ...data, [section]:[...(data[section]||[]), {...food, id:undefined, logId:Date.now()}] };
-    onUpdate(date, updated);
-    const exists = [...DEFAULT_FOODS,...foodDatabase].some(f=>f.name.toLowerCase()===food.name.toLowerCase());
-    if (!exists) onAddToDatabase({ id:`db_${Date.now()}`, name:food.name,
-      calories:food.calories, protein:food.protein||0, emoji:food.emoji||"🍴" });
+  function removeMeal(day, id) {
+    const current = mealPlan[day] || [];
+    onUpdate({ ...mealPlan, [day]: current.filter(e => e.id !== id) });
   }
-
-  function removeFood(section, logId) {
-    if (isLocked) return;
-    const updated = { ...data, [section]:(data[section]||[]).filter(f=>f.logId!==logId) };
-    onUpdate(date, updated);
-  }
-
-  const dateLabel = isToday
-    ? new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})
-    : formatDateLong(date);
 
   return (
     <div>
       {addingTo && (
-        <AddFoodModal section={addingTo} foodDatabase={foodDatabase}
-          onAdd={food=>addFood(addingTo,food)} onClose={()=>setAddingTo(null)}/>
+        <AddMealSheet onAdd={mealId => addMeal(addingTo, mealId)} onClose={() => setAddingTo(null)}/>
       )}
 
-      <div style={{ fontSize:11, color:"#555", marginBottom:16 }}>
-        {dateLabel}
-        {isLocked && <span style={{ marginLeft:8, color:"#fb923c" }}>🔒 Submitted</span>}
-        {saving && <span style={{ marginLeft:8, color:"#888" }}>Saving…</span>}
-        {saveError && <span style={{ marginLeft:8, color:"#fb923c" }}>⚠️ Save failed — check connection</span>}
+      {/* Day selector strip */}
+      <div style={{ display:"flex", gap:5, marginBottom:20, overflowX:"auto", paddingBottom:4 }}>
+        {DAYS_ORDER.map(day => {
+          const { cals: dCals, calColor: dColor } = DayMacroChip({ mealPlan, day });
+          const isActive = day === activeDay;
+          const count = (mealPlan[day] || []).length;
+          return (
+            <button key={day} onClick={() => setActiveDay(day)} style={{
+              flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center",
+              padding:"8px 10px", borderRadius:12,
+              background:isActive?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.04)",
+              border:isActive?"1px solid rgba(255,255,255,0.15)":"1px solid transparent",
+              cursor:"pointer", minWidth:48 }}>
+              <span style={{ fontSize:11, color:isActive?"#ece9e3":"#555", fontFamily:"'DM Sans',sans-serif", fontWeight:isActive?600:400 }}>
+                {DAY_SHORT[day]}
+              </span>
+              {count > 0 && (
+                <span style={{ fontSize:10, color:dColor, marginTop:2, fontWeight:700 }}>{dCals}</span>
+              )}
+              {count === 0 && <span style={{ fontSize:10, color:"#333", marginTop:2 }}>—</span>}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Summary bar */}
-      <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
-        borderRadius:14, padding:"16px", marginBottom:20 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:12 }}>
-          <div>
-            <div style={{ fontSize:32, fontWeight:600, color:calorieColor, lineHeight:1 }}>
-              {Math.round(totalCalories)}
-            </div>
-            <div style={{ fontSize:11, color:"#555", marginTop:2 }}>
-              of {CALORIE_TARGET} cal · {remaining>=0?`${remaining} remaining`:`${Math.abs(remaining)} over`}
-            </div>
-          </div>
+      {/* Active day header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <div>
+          <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>{DAY_LABELS[activeDay]}</div>
+          {entries.length > 0 && (
+            <div style={{ fontSize:11, color:"#555", marginTop:2 }}>{entries.length} meal{entries.length!==1?"s":""} planned</div>
+          )}
+        </div>
+        {entries.length > 0 && (
           <div style={{ textAlign:"right" }}>
-            <div style={{ fontSize:18, fontWeight:600, color:"#a78bfa" }}>{Math.round(totalProtein)}g</div>
-            <div style={{ fontSize:10, color:"#555" }}>of {PROTEIN_TARGET}g protein</div>
+            <div style={{ fontSize:20, fontWeight:700, color:calColor }}>{Math.round(cals)}</div>
+            <div style={{ fontSize:10, color:"#555" }}>cal · {Math.round(pro)}g pro</div>
           </div>
-        </div>
-        <div style={{ display:"flex", gap:12 }}>
-          <MacroBar label="Calories" current={totalCalories} target={CALORIE_TARGET} color="#4ade80"/>
-          <MacroBar label="Protein"  current={totalProtein}  target={PROTEIN_TARGET}  color="#a78bfa"/>
-        </div>
+        )}
       </div>
 
-      {/* Meal sections */}
-      {MEAL_SECTIONS.map(section=>{
-        const entries     = data[section.id]||[];
-        const sectionCals = entries.reduce((s,f)=>s+f.calories,0);
-        return (
-          <div key={section.id} style={{ marginBottom:20 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-              <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5,
-                color:section.color, textTransform:"uppercase" }}>
-                {section.icon} {section.label}
+      {/* Macro bars */}
+      {entries.length > 0 && (
+        <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
+          <div style={{ display:"flex", gap:16 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:10, color:"#555" }}>Calories</span>
+                <span style={{ fontSize:10, color:cals>CALORIE_TARGET?"#fb923c":"#4ade80", fontWeight:600 }}>
+                  {Math.round(cals)}<span style={{ color:"#444" }}>/{CALORIE_TARGET}</span>
+                </span>
               </div>
-              {sectionCals>0&&<span style={{ fontSize:10, color:"#555" }}>{Math.round(sectionCals)} cal</span>}
+              <MacroBar current={cals} target={CALORIE_TARGET} color="#4ade80"/>
             </div>
-            <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
-              borderRadius:14, overflow:"hidden" }}>
-              {entries.length===0 ? (
-                <div style={{ padding:"14px", color:"#444", fontSize:13, textAlign:"center" }}>
-                  Nothing logged yet
-                </div>
-              ) : (
-                entries.map(entry=>(
-                  <FoodEntry key={entry.logId} entry={entry} locked={isLocked}
-                    onRemove={()=>removeFood(section.id,entry.logId)}/>
-                ))
-              )}
-              {!isLocked && (
-                <div onClick={()=>setAddingTo(section.id)}
-                  style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 14px",
-                    cursor:"pointer", color:"#555",
-                    borderTop:entries.length>0?"1px solid rgba(255,255,255,0.04)":"none" }}
-                  className="row">
-                  <span style={{ fontSize:18 }}>＋</span>
-                  <span style={{ fontSize:13 }}>Add food</span>
-                </div>
-              )}
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
+                <span style={{ fontSize:10, color:"#555" }}>Protein</span>
+                <span style={{ fontSize:10, color:pro>=PROTEIN_TARGET?"#4ade80":"#a78bfa", fontWeight:600 }}>
+                  {Math.round(pro)}g<span style={{ color:"#444" }}>/{PROTEIN_TARGET}g</span>
+                </span>
+              </div>
+              <MacroBar current={pro} target={PROTEIN_TARGET} color="#a78bfa"/>
             </div>
           </div>
-        );
-      })}
+        </div>
+      )}
 
-      {/* Action buttons */}
-      <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:24 }}>
-        {!isLocked && allEntries.length>0 && (
-          <button onClick={()=>onSubmit(date, {...data, locked:true})}
-            style={{ width:"100%", padding:"13px", borderRadius:12, border:"none",
-              background:"#4ade80", color:"#0d0d10",
-              fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, cursor:"pointer",
-              opacity:saving?0.6:1 }}>
-            {saving?"Saving…":"Submit today's food log"}
-          </button>
-        )}
-        {isLocked && (
-          <button onClick={()=>onUnlock(date, {...data, locked:false})}
-            style={{ width:"100%", padding:"13px", borderRadius:12,
-              border:"1px solid rgba(251,146,60,0.3)", background:"rgba(251,146,60,0.08)",
-              color:"#fb923c", fontFamily:"'DM Sans',sans-serif",
-              fontSize:14, fontWeight:600, cursor:"pointer" }}>
-            Unlock to edit this day
-          </button>
-        )}
-        {!isLocked && !isToday && allEntries.length>0 && (
-          <div style={{ textAlign:"center", fontSize:11, color:"#555" }}>
-            Make your changes above, then submit to save
+      {/* Meal list */}
+      <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+        borderRadius:14, overflow:"hidden", marginBottom:12 }}>
+        {entries.length === 0 ? (
+          <div style={{ padding:"24px", textAlign:"center", color:"#444", fontSize:13 }}>
+            No meals planned — tap below to add
           </div>
+        ) : (
+          entries.map(entry => (
+            <MealEntry key={entry.id} entry={entry} onRemove={() => removeMeal(activeDay, entry.id)}/>
+          ))
         )}
+        <div onClick={() => setAddingTo(activeDay)}
+          style={{ display:"flex", alignItems:"center", gap:8, padding:"12px 14px",
+            cursor:"pointer", color:"#555",
+            borderTop:entries.length>0?"1px solid rgba(255,255,255,0.04)":"none" }} className="row">
+          <span style={{ fontSize:20, color:"#4ade80" }}>＋</span>
+          <span style={{ fontSize:13 }}>Add meal to {DAY_SHORT[activeDay]}</span>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// ── OVERVIEW TAB ──────────────────────────────────────────
+function OverviewTab({ mealPlan }) {
+  // Count usage of each meal across the week
+  const usageCounts = useMemo(() => {
+    const counts = {};
+    DAYS_ORDER.forEach(day => {
+      (mealPlan[day] || []).forEach(entry => {
+        counts[entry.mealId] = (counts[entry.mealId] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [mealPlan]);
+
+  const totalMeals = Object.values(usageCounts).reduce((s, c) => s + c, 0);
+
+  return (
+    <div>
+      {/* Week at a glance */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5, color:"#888",
+          textTransform:"uppercase", marginBottom:12 }}>Week at a glance</div>
+        {DAYS_ORDER.map(day => {
+          const entries = mealPlan[day] || [];
+          const { cals, pro, calColor } = DayMacroChip({ mealPlan, day });
+          return (
+            <div key={day} style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+              borderRadius:12, padding:"12px 14px", marginBottom:8 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:entries.length>0?8:0 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:"#dbd7cf" }}>{DAY_LABELS[day]}</div>
+                {entries.length > 0 ? (
+                  <div style={{ fontSize:12, color:calColor, fontWeight:700 }}>
+                    {Math.round(cals)} cal · {Math.round(pro)}g pro
+                  </div>
+                ) : (
+                  <div style={{ fontSize:11, color:"#333" }}>Nothing planned</div>
+                )}
+              </div>
+              {entries.length > 0 && (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                  {entries.map(entry => {
+                    const meal = MEAL_LIBRARY.find(m => m.id === entry.mealId);
+                    if (!meal) return null;
+                    const cat = CAT_META[meal.category];
+                    return (
+                      <span key={entry.id} style={{ fontSize:11, color:cat.color,
+                        background:`${cat.color}14`, padding:"3px 8px", borderRadius:6 }}>
+                        {meal.emoji} {meal.name}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Meal frequency */}
+      {totalMeals > 0 && (
+        <div>
+          <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5, color:"#888",
+            textTransform:"uppercase", marginBottom:12 }}>Meal frequency this week</div>
+          <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+            borderRadius:14, overflow:"hidden" }}>
+            {Object.entries(usageCounts)
+              .sort(([,a],[,b]) => b - a)
+              .map(([mealId, count], i, arr) => {
+                const meal = MEAL_LIBRARY.find(m => m.id === mealId);
+                if (!meal) return null;
+                const cat = CAT_META[meal.category];
+                return (
+                  <div key={mealId} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px",
+                    borderBottom:i<arr.length-1?"1px solid rgba(255,255,255,0.045)":"none" }}>
+                    <span style={{ fontSize:18, flexShrink:0 }}>{meal.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, color:"#dbd7cf" }}>{meal.name}</div>
+                      <span style={{ fontSize:10, color:cat.color, background:`${cat.color}18`,
+                        padding:"1px 6px", borderRadius:4, fontWeight:600 }}>{cat.label}</span>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                      {Array.from({ length: count }).map((_, i) => (
+                        <div key={i} style={{ width:8, height:8, borderRadius:"50%", background:cat.color }}/>
+                      ))}
+                      <span style={{ fontSize:12, color:"#555", marginLeft:4 }}>×{count}</span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {totalMeals === 0 && (
+        <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:14, padding:"30px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>📅</div>
+          <div style={{ fontSize:14, color:"#555" }}>No meals planned yet</div>
+          <div style={{ fontSize:11, color:"#444", marginTop:4 }}>Head to Assign to start building your week</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SHOP TAB ──────────────────────────────────────────────
+function ShopTab({ mealPlan, parStock }) {
+  const [checkedItems, setCheckedItems] = useState({});
+  const [shopDay, setShopDay] = useState("WED");
+
+  const daySet = shopDay === "WED" ? WED_SHOP_DAYS : SUN_SHOP_DAYS;
+  const groceries = useMemo(() => buildGroceryList(mealPlan, daySet), [mealPlan, daySet]);
+  const groceryEntries = Object.entries(groceries);
+
+  const shopLabel = shopDay === "WED"
+    ? "Wednesday — Wed/Thu/Fri/Sat meals"
+    : "Sunday — Sun/Mon/Tue meals";
+
+  // Par items below par — only show on Wednesday
+  const { PAR_CATEGORIES } = require ? null : null; // handled via props
+  const belowPar = shopDay === "WED" && parStock ? (() => {
+    // We import PAR_CATEGORIES at file level
+    return [];
+  })() : [];
+
+  function toggleCheck(key) {
+    setCheckedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const remaining = groceryEntries.filter(([k]) => !checkedItems[k]).length;
+
+  return (
+    <div>
+      {/* Shop day toggle */}
+      <div style={{ display:"flex", gap:6, marginBottom:20 }}>
+        {[["WED","Wednesday"],["SUN","Sunday"]].map(([d, l]) => (
+          <button key={d} onClick={() => { setShopDay(d); setCheckedItems({}); }} style={{
+            flex:1, padding:"10px", borderRadius:10, border:"none", cursor:"pointer",
+            background:shopDay===d?"#ece9e3":"rgba(255,255,255,0.06)",
+            color:shopDay===d?"#0d0d10":"#777",
+            fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:500 }}>
+            🛒 {l}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ fontSize:11, color:"#555", marginBottom:16 }}>{shopLabel}</div>
+
+      {/* Progress */}
+      {groceryEntries.length > 0 && (
+        <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+            <span style={{ fontSize:12, color:"#888" }}>Shopping progress</span>
+            <span style={{ fontSize:12, fontWeight:700,
+              color:remaining===0?"#4ade80":"#dbd7cf" }}>
+              {groceryEntries.length - remaining}/{groceryEntries.length} grabbed
+            </span>
+          </div>
+          <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:99, overflow:"hidden" }}>
+            <div style={{ height:"100%", borderRadius:99, background:"#4ade80", transition:"width 0.3s",
+              width:`${((groceryEntries.length - remaining) / groceryEntries.length) * 100}%` }}/>
+          </div>
+        </div>
+      )}
+
+      {/* Grocery list */}
+      {groceryEntries.length === 0 ? (
+        <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:14, padding:"30px 20px", textAlign:"center", marginBottom:16 }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🛒</div>
+          <div style={{ fontSize:14, color:"#555" }}>No groceries needed</div>
+          <div style={{ fontSize:11, color:"#444", marginTop:4 }}>
+            Plan some meals for {shopDay === "WED" ? "Wed–Sat" : "Sun–Tue"} in the Assign tab
+          </div>
+        </div>
+      ) : (
+        <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+          borderRadius:14, overflow:"hidden", marginBottom:20 }}>
+          <div style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5, color:"#4ade80",
+              textTransform:"uppercase" }}>🥩 Groceries</div>
+          </div>
+          {groceryEntries.map(([key, data], i) => {
+            const display = GROCERY_DISPLAY[key];
+            if (!display) return null;
+            const checked = !!checkedItems[key];
+            let amountStr = "";
+            if (data.isCount) {
+              amountStr = `${data.total} ${data.total === 1 ? "pc" : "pcs"}`;
+            } else {
+              amountStr = `${Math.round(data.total)}g`;
+              if (display.showLbs) amountStr += ` (${gToLbs(data.total)} lbs)`;
+            }
+            return (
+              <div key={key} onClick={() => toggleCheck(key)}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px",
+                  borderBottom:i<groceryEntries.length-1?"1px solid rgba(255,255,255,0.04)":"none",
+                  cursor:"pointer", background:checked?"rgba(74,222,128,0.04)":"transparent",
+                  transition:"background 0.15s" }} className="row">
+                <div style={{ width:20, height:20, borderRadius:6, flexShrink:0,
+                  border:checked?"none":"2px solid rgba(255,255,255,0.15)",
+                  background:checked?"#4ade80":"transparent",
+                  display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  {checked && <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4L3.5 6.5L9 1" stroke="#0d0d10" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, color:checked?"#555":"#dbd7cf",
+                    textDecoration:checked?"line-through":"none" }}>{display.name}</div>
+                </div>
+                <div style={{ fontSize:12, fontWeight:700, color:checked?"#444":"#888", flexShrink:0 }}>
+                  {amountStr}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Household par — Wednesday only */}
+      {shopDay === "WED" && <HouseholdSection parStock={parStock}/>}
+    </div>
+  );
+}
+
+// ── Household section (Wednesday shop only) ───────────────
+function HouseholdSection({ parStock }) {
+  const { PAR_CATEGORIES } = useMemo(() => {
+    try { return require("../constants"); } catch { return { PAR_CATEGORIES:[] }; }
+  }, []);
+  return <HouseholdSectionInner parStock={parStock}/>;
+}
+
+function HouseholdSectionInner({ parStock }) {
+  // Import inline to avoid circular issues
+  const [cats, setCats] = useState(null);
+  if (!cats) {
+    import("../constants").then(m => setCats(m.PAR_CATEGORIES));
+    return null;
+  }
+
+  const belowPar = cats.flatMap(cat =>
+    cat.items.filter(item => {
+      const stock = parseInt(parStock?.[item.id] ?? item.par, 10);
+      return stock < item.par;
+    }).map(item => ({ ...item, catLabel:cat.label, stock:parseInt(parStock?.[item.id] ?? item.par, 10) }))
+  );
+
+  if (belowPar.length === 0) {
+    return (
+      <div style={{ background:"rgba(74,222,128,0.06)", border:"1px solid rgba(74,222,128,0.15)",
+        borderRadius:14, padding:"16px 14px", marginBottom:20 }}>
+        <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5, color:"#4ade80",
+          textTransform:"uppercase", marginBottom:6 }}>🏠 Household</div>
+        <div style={{ fontSize:13, color:"#4ade80" }}>✓ All household items at par</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
+      borderRadius:14, overflow:"hidden", marginBottom:20 }}>
+      <div style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ fontSize:9, fontWeight:700, letterSpacing:2.5, color:"#fb923c",
+          textTransform:"uppercase" }}>🏠 Household — below par</div>
+      </div>
+      {belowPar.map((item, i) => (
+        <div key={item.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px",
+          borderBottom:i<belowPar.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, color:"#dbd7cf" }}>{item.name}</div>
+            <div style={{ fontSize:10, color:"#555", marginTop:1 }}>{item.catLabel}</div>
+          </div>
+          <div style={{ fontSize:12, color:"#fb923c", fontWeight:700 }}>
+            {item.stock}/{item.par} {item.unit}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ── Main FoodTab ──────────────────────────────────────────
-export default function FoodTab({ foodLog, onUpdateLog, onSubmitDay, foodDatabase, onAddToDatabase, saving, saveError }) {
-  const [showHistory, setShowHistory] = useState(false);
-  const [editingDate, setEditingDate] = useState(null);
+export default function FoodTab({ mealPlan, onUpdateMealPlan, parStock, saving, saveError }) {
+  const [tab, setTab] = useState("assign");
 
-  const today     = new Date().toISOString().slice(0, 10);
-  const todayData = foodLog[today] || null;
+  const TABS = [
+    { id:"assign",   label:"Assign"   },
+    { id:"overview", label:"Overview" },
+    { id:"shop",     label:"Shop"     },
+  ];
 
-  // History — all locked days, newest first, permanent
-  const history = Object.entries(foodLog)
-    .filter(([, data]) => data?.locked)
-    .sort(([a],[b]) => b.localeCompare(a))
-    .map(([date, data]) => {
-      const entries = [...(data.pre||[]), ...(data.main||[]), ...(data.snack||[])];
-      return {
-        date,
-        calories: Math.round(entries.reduce((s,f)=>s+f.calories,0)),
-        protein:  Math.round(entries.reduce((s,f)=>s+(f.protein||0),0)),
-      };
-    });
-
-  function handleUnlock(date, updatedData) {
-    onUpdateLog(date, updatedData);
-    setEditingDate(date === today ? null : date);
-  }
-
-  const viewingDate = editingDate || today;
-  const viewingData = foodLog[viewingDate] || null;
-  const isViewingToday = viewingDate === today;
+  const totalMeals = DAYS_ORDER.reduce((s, d) => s + (mealPlan[d]||[]).length, 0);
 
   return (
-    <div style={{ padding:"18px 20px 0" }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>
-          Food Log
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
+        <div style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:600 }}>Meal Plan</div>
+        <div style={{ textAlign:"right" }}>
+          {saving    && <div style={{ fontSize:11, color:"#555" }}>Saving…</div>}
+          {saveError && <div style={{ fontSize:11, color:"#fb923c" }}>⚠️ Save failed</div>}
+          {totalMeals > 0 && !saving && !saveError && (
+            <div style={{ fontSize:11, color:"#555" }}>{totalMeals} meals this week</div>
+          )}
         </div>
-        {editingDate && (
-          <button onClick={()=>setEditingDate(null)} style={{ background:"rgba(255,255,255,0.06)",
-            border:"1px solid rgba(255,255,255,0.08)", color:"#888", borderRadius:8,
-            padding:"6px 12px", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:11 }}>
-            ← Back to today
-          </button>
-        )}
       </div>
 
-      <DayEditor
-        key={viewingDate}
-        date={viewingDate}
-        dayData={viewingData}
-        isToday={isViewingToday}
-        onUpdate={onUpdateLog}
-        onSubmit={(date, data) => {
-          onSubmitDay(date, data);
-          setEditingDate(null);
-          setShowHistory(true);
-        }}
-        onUnlock={handleUnlock}
-        foodDatabase={foodDatabase}
-        onAddToDatabase={onAddToDatabase}
-        saving={saving}
-        saveError={saveError}
-      />
-
-      {/* History toggle */}
-      {history.length>0 && (
-        <>
-          <button onClick={()=>setShowHistory(o=>!o)} style={{ width:"100%", padding:"12px",
-            background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)",
-            borderRadius:12, color:"#777", fontFamily:"'DM Sans',sans-serif", fontSize:13,
-            cursor:"pointer", marginBottom:showHistory?16:0 }}>
-            {showHistory?"Hide":"Show"} food history ({history.length} days)
+      {/* Tab bar */}
+      <div style={{ display:"flex", gap:5, marginBottom:20, marginTop:12 }}>
+        {TABS.map(({ id, label }) => (
+          <button key={id} onClick={() => setTab(id)} style={{
+            flex:1, padding:"9px", borderRadius:10, border:"none", cursor:"pointer",
+            background:tab===id?"#ece9e3":"rgba(255,255,255,0.06)",
+            color:tab===id?"#0d0d10":"#777",
+            fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:500 }}>
+            {label}
           </button>
+        ))}
+      </div>
 
-          {showHistory && (
-            <div style={{ background:"#17171d", border:"1px solid rgba(255,255,255,0.06)",
-              borderRadius:14, overflow:"hidden", marginBottom:20 }}>
-              <div style={{ display:"flex", padding:"8px 14px",
-                borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-                <span style={{ flex:2, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1 }}>Date</span>
-                <span style={{ flex:1, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1, textAlign:"right" }}>Cal</span>
-                <span style={{ flex:1, fontSize:9, color:"#444", textTransform:"uppercase", letterSpacing:1, textAlign:"right" }}>Protein</span>
-                <span style={{ width:40 }}/>
-              </div>
-              {history.map((row,i)=>{
-                const calColor = row.calories>CALORIE_TARGET?"#fb923c"
-                               : row.calories>CALORIE_TARGET*0.85?"#4ade80":"#888";
-                const proColor = row.protein>=PROTEIN_TARGET?"#4ade80":"#888";
-                return (
-                  <div key={row.date} style={{ display:"flex", alignItems:"center",
-                    padding:"11px 14px",
-                    borderBottom:i<history.length-1?"1px solid rgba(255,255,255,0.045)":"none" }}>
-                    <span style={{ flex:2, fontSize:13, color:"#888" }}>{formatDateLong(row.date)}</span>
-                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:calColor, textAlign:"right" }}>
-                      {row.calories}
-                    </span>
-                    <span style={{ flex:1, fontSize:13, fontWeight:600, color:proColor, textAlign:"right" }}>
-                      {row.protein}g
-                    </span>
-                    <button onClick={()=>{ setEditingDate(row.date); setShowHistory(false); }}
-                      style={{ width:40, background:"none", border:"none", color:"#555",
-                        cursor:"pointer", fontSize:12, textAlign:"right" }}>Edit</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+      {tab === "assign"   && <AssignTab   mealPlan={mealPlan} onUpdate={onUpdateMealPlan}/>}
+      {tab === "overview" && <OverviewTab mealPlan={mealPlan}/>}
+      {tab === "shop"     && <ShopTab     mealPlan={mealPlan} parStock={parStock}/>}
     </div>
   );
 }
