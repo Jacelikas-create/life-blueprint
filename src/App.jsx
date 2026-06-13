@@ -7,7 +7,7 @@ import ErrandsPanel from "./components/ErrandsPanel";
 import WeightTab from "./components/WeightTab";
 import WorkoutTracker from "./components/WorkoutTracker";
 import FoodTab from "./components/FoodTab";
-import ParTab from "./components/ParTab.jsx";
+import ParTab from "./components/ParTab";
 
 export default function App() {
   const todayCode = getTodayCode();
